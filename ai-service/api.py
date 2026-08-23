@@ -24,6 +24,13 @@ from pydantic import BaseModel, Field
 
 from bandit import ThompsonSampler
 from classifier import BehaviorClassifier
+from employee_simulator import (
+    Employee,
+    expected_detection_reward,
+    generate_population,
+    response_distribution,
+    sample_response,
+)
 from freshness import FreshnessChecker
 from scenario import validate_scenario
 
@@ -87,6 +94,26 @@ class MetricsResponse(BaseModel):
     optimal_rate: List[float]
 
 
+class TrueMeansRequest(BaseModel):
+    employee: dict   # role, department, base_alertness, susceptibility
+
+
+class EmployeeGenerateRequest(BaseModel):
+    count_per_combo: int = 4
+    seed: int = 42
+
+
+class BehaviorSimulateRequest(BaseModel):
+    employee: dict   # needs role, department, base_alertness, susceptibility
+    tactic: str
+    difficulty: int = 3
+
+
+class BehaviorSimulateResponse(BaseModel):
+    response: str
+    probs: Dict[str, float]
+
+
 classifier: Optional[BehaviorClassifier] = None
 
 
@@ -136,7 +163,24 @@ def bandit_update(request: BanditUpdateRequest) -> BanditUpdateResponse:
     return BanditUpdateResponse(alpha=alpha, beta=beta, mean=mean, variance=variance)
 
 
-# ---------- behavior classifier ----------
+# ---------- behavior ----------
+
+@app.post("/behavior/simulate", response_model=BehaviorSimulateResponse)
+def behavior_simulate(request: BehaviorSimulateRequest) -> BehaviorSimulateResponse:
+    """Probabilistic simulator as the behavior source (no ML involved)."""
+    employee = Employee(
+        code=request.employee.get("code", "emp_manual"),
+        role=request.employee.get("role", "employee"),
+        department=request.employee.get("department", "General"),
+        base_alertness=float(request.employee.get("base_alertness", 0.55)),
+        susceptibility=request.employee.get("susceptibility"),
+    )
+    if not employee.susceptibility:
+        raise HTTPException(status_code=422, detail="employee.susceptibility is required")
+    probs = response_distribution(employee, request.tactic, request.difficulty)
+    response = sample_response(employee, request.tactic, request.difficulty)
+    return BehaviorSimulateResponse(response=response, probs=probs)
+
 
 @app.post("/behavior/predict")
 def behavior_predict(request: BehaviorPredictRequest) -> dict:
@@ -178,6 +222,25 @@ def scenario_freshness(request: FreshnessRequest) -> dict:
     return checker.check(request.candidate, request.history)
 
 
+# ---------- employees ----------
+
+@app.post("/employee/generate")
+def employee_generate(request: EmployeeGenerateRequest) -> dict:
+    """Deterministic synthetic population (single source of truth in Python)."""
+    employees = generate_population(count_per_combo=request.count_per_combo,
+                                    seed=request.seed)
+    return {"employees": [
+        {
+            "code": e.code,
+            "role": e.role,
+            "department": e.department,
+            "base_alertness": e.base_alertness,
+            "susceptibility": e.susceptibility,
+        }
+        for e in employees
+    ]}
+
+
 # ---------- metrics ----------
 
 @app.post("/metrics/session", response_model=MetricsResponse)
@@ -194,3 +257,21 @@ def metrics_session(request: MetricsRequest) -> MetricsResponse:
         cum_regret.append(round(regret_total, 4))
         optimal.append(1.0 if arm == best else 0.0)
     return MetricsResponse(cum_reward=cum_reward, cum_regret=cum_regret, optimal_rate=optimal)
+
+
+@app.post("/metrics/true-means")
+def metrics_true_means(request: TrueMeansRequest) -> dict:
+    """Expected detection reward per tactic for one employee (regret oracle)."""
+    employee = Employee(
+        code=request.employee.get("code", "emp_manual"),
+        role=request.employee.get("role", "employee"),
+        department=request.employee.get("department", "General"),
+        base_alertness=float(request.employee.get("base_alertness", 0.55)),
+        susceptibility=request.employee.get("susceptibility"),
+    )
+    if not employee.susceptibility:
+        raise HTTPException(status_code=422, detail="employee.susceptibility is required")
+    return {
+        tactic: expected_detection_reward(employee, tactic, difficulty=3)
+        for tactic in ("urgency", "authority", "invoice", "credential")
+    }

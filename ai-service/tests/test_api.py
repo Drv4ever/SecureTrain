@@ -141,3 +141,57 @@ def test_model_info_exposes_metadata(client):
     if info["loaded"]:
         assert info["feature_count"] > 0
         assert 0.0 < info["accuracy"] <= 1.0
+
+
+def test_employee_generate_returns_100_employees(client):
+    response = client.post("/employee/generate", json={"count_per_combo": 4, "seed": 42})
+    assert response.status_code == 200
+    employees = response.json()["employees"]
+    assert len(employees) == 100
+    first = employees[0]
+    assert set(first.keys()) == {"code", "role", "department", "base_alertness", "susceptibility"}
+    assert set(first["susceptibility"].keys()) == {"urgency", "authority", "invoice", "credential"}
+
+
+def test_employee_generate_is_deterministic(client):
+    first = client.post("/employee/generate", json={"seed": 42}).json()["employees"]
+    second = client.post("/employee/generate", json={"seed": 42}).json()["employees"]
+    assert first == second
+
+
+def test_behavior_simulate_returns_response_and_probs(client):
+    employee = {
+        "code": "emp_test", "role": "Accountant", "department": "Finance",
+        "base_alertness": 0.55,
+        "susceptibility": {"urgency": 0.2, "authority": 0.3, "invoice": 0.8, "credential": 0.4},
+    }
+    response = client.post("/behavior/simulate",
+                           json={"employee": employee, "tactic": "invoice", "difficulty": 3})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["response"] in {"ignore", "report", "click", "credentials"}
+    assert set(body["probs"].keys()) == {"ignore", "report", "click", "credentials"}
+    assert sum(body["probs"].values()) == pytest.approx(1.0)
+
+
+def test_behavior_simulate_requires_susceptibility(client):
+    response = client.post("/behavior/simulate", json={
+        "employee": {"role": "Accountant", "department": "Finance",
+                     "base_alertness": 0.55, "susceptibility": None},
+        "tactic": "invoice",
+    })
+    assert response.status_code == 422
+
+
+def test_metrics_true_means_orders_by_susceptibility(client):
+    employee = {
+        "code": "emp_test", "role": "Accountant", "department": "Finance",
+        "base_alertness": 0.55,
+        "susceptibility": {"urgency": 0.2, "authority": 0.3, "invoice": 0.8, "credential": 0.4},
+    }
+    response = client.post("/metrics/true-means", json={"employee": employee})
+    assert response.status_code == 200
+    means = response.json()
+    assert set(means.keys()) == {"urgency", "authority", "invoice", "credential"}
+    assert max(means, key=means.get) == "invoice"
+    assert all(0.0 <= v <= 1.0 for v in means.values())
