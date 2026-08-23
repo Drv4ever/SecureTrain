@@ -31,12 +31,16 @@ class ThompsonSampler:
         self.beta = {arm: self.prior_beta for arm in self.arm_names}
         self.pulls = {arm: 0 for arm in self.arm_names}
 
-    def select(self) -> str:
-        """Sample every posterior once and return the winning arm."""
-        samples = {
+    def sample_posteriors(self) -> dict:
+        """One sample from each arm's posterior (the Thompson draws)."""
+        return {
             arm: self.rng.betavariate(self.alpha[arm], self.beta[arm])
             for arm in self.arm_names
         }
+
+    def select(self) -> str:
+        """Sample every posterior once and return the winning arm."""
+        samples = self.sample_posteriors()
         return max(samples, key=samples.get)
 
     def update(self, arm: str, reward: float) -> None:

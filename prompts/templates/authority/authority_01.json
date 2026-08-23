@@ -1,0 +1,10 @@
+{
+  "tactic": "authority",
+  "difficulty": 2,
+  "sender_name": "Priya Nandakumar",
+  "sender_email": "priya.nandakumar@aurora-cloud.example.com",
+  "subject": "Quick favor needed",
+  "body": "Good morning, I am in back-to-back meetings today and cannot reach the portal from my current location. I need a small favor. Please send me the shared list of active vendor contacts we prepared last quarter. You can find it in the shared drive under the vendor folder. Send it directly to my personal mailbox so I can review it during my commute. Thanks in advance, I will explain the context when I am back in the office.",
+  "indicators": ["sender claims to be unreachable", "asks to send data to a 'personal mailbox'", "vague justification with implied authority"],
+  "hook": "Mimics a senior colleague's casual request and exploits the instinct to help someone in authority quickly."
+}

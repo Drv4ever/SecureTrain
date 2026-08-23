@@ -30,6 +30,14 @@ def test_select_returns_a_known_arm():
         assert sampler.select() in sampler.arm_names
 
 
+def test_sample_posteriors_returns_one_draw_per_arm():
+    sampler = ThompsonSampler(seed=2)
+    samples = sampler.sample_posteriors()
+    assert set(samples.keys()) == set(sampler.arm_names)
+    for value in samples.values():
+        assert 0.0 < value < 1.0
+
+
 def test_unknown_arm_rejected():
     sampler = ThompsonSampler()
     with pytest.raises(ValueError):

@@ -1,0 +1,10 @@
+{
+  "tactic": "urgency",
+  "difficulty": 4,
+  "sender_name": "Aisha Romero",
+  "sender_email": "aisha.romero@vantage-partners.example.com",
+  "subject": "Re: Action needed today - project billing",
+  "body": "You are receiving this because you are the owner of an open billing record tied to the fiscal-year close. Our records indicate a discrepancy that must be resolved before the audit window closes at 17:00 today. Please open the linked statement in the internal portal and confirm the totals so we can clear your name from the review list. Failure to respond today will cause the record to be escalated to your department head. This message has been sent from an automated system, please do not reply to confirm your attendance separately.",
+  "indicators": ["time pressure tied to an audit", "escalation threat to department head", "plausible fiscal context with no real evidence"],
+  "hook": "Mimics an auditor's deadline and threatens escalation to a manager, which reads as legitimate and specific."
+}

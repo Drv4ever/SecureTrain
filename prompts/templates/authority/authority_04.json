@@ -1,0 +1,10 @@
+{
+  "tactic": "authority",
+  "difficulty": 5,
+  "sender_name": "Executive Assistant - T. Brooks",
+  "sender_email": "ta.brooks@aurora-cloud.example.com",
+  "subject": "Personal errand for the CEO",
+  "body": "Hello, the CEO is traveling and needs a personal errand handled quietly. Please purchase digital store credit in the amount of two hundred dollars from the partner retailer and email the redemption code to this mailbox. This is a personal expense that will be reimbursed through the executive budget, so use the corporate card and mark the line item as business development. Please do this today and do not mention it in the team chat, as the CEO prefers to keep this private. Thank you for your discretion.",
+  "indicators": ["authority figure asks for a personal purchase", "pressure to keep it private", "business card used for personal expense"],
+  "hook": "Combines executive authority, a 'private matter' instruction, and reimbursement promises to bypass policy."
+}

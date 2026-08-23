@@ -4,6 +4,9 @@ __pycache__/
 .pytest_cache/
 .venv/
 
+# Trained model artifacts (regenerate with `python classifier.py train`)
+ai-service/models/
+
 # Node
 node_modules/
 dist/

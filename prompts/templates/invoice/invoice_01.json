@@ -1,0 +1,10 @@
+{
+  "tactic": "invoice",
+  "difficulty": 2,
+  "sender_name": "Accounts Receivable",
+  "sender_email": "ar@aurora-cloud.example.com",
+  "subject": "Invoice 10458 - payment due",
+  "body": "This is a reminder that invoice 10458 in the amount of 1,240.00 is due for payment. The invoice relates to the software maintenance subscription for your department and was issued on the first of the month. Payment terms are net 15. If payment has already been made please disregard this reminder. Otherwise, please process the payment through the usual channels and update the payment reference. A copy of the invoice is available in the billing portal under your account.",
+  "indicators": ["generic invoice wording", "vague reference to a maintenance subscription", "directs payment through a portal without confirming an order"],
+  "hook": "Looks like a routine finance reminder most employees receive monthly, so it blends in."
+}

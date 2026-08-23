@@ -1,0 +1,10 @@
+{
+  "tactic": "authority",
+  "difficulty": 4,
+  "sender_name": "Board Office",
+  "sender_email": "board.office@vantage-partners.example.com",
+  "subject": "Board-level request - contact sheet",
+  "body": "The board office is preparing the quarterly governance pack and your department has been asked to contribute the internal contact sheet for senior staff. Please compile the list with phone numbers and personal email addresses as provided in the last org chart, and send it to the office mailbox. This is needed before the board meeting on Friday. Mark the message as confidential and do not copy other departments, as the distribution is restricted.",
+  "indicators": ["impersonation of an executive office", "requests a roster of personal contact data", "instructs you not to copy others (social isolation)"],
+  "hook": "Uses authority and a governance deadline to request sensitive contact data while instructing secrecy."
+}

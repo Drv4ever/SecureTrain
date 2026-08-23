@@ -1,0 +1,10 @@
+{
+  "tactic": "invoice",
+  "difficulty": 3,
+  "sender_name": "Billing Desk",
+  "sender_email": "billing@vantage-partners.example.com",
+  "subject": "Duplicate invoice detected - please reconcile",
+  "body": "Our system detected that invoice 20711 was submitted twice in the last cycle. We need your team to confirm which submission is the valid one before the month-end close. Please review the two attached records and reply with the correct reference. If both are valid, let us know so we can merge them into one payment. The finance system may otherwise flag a duplicate payment. Please respond by the close of business today so the reconciliation can be completed.",
+  "indicators": ["unexpected duplicate-invoice story", "attachments implied", "requests a response within the day"],
+  "hook": "Uses a believable billing-system anomaly and a month-end deadline to pressure a finance contact."
+}
