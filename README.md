@@ -1,71 +1,94 @@
-# SecureTrain — Adaptive AI Security Awareness Trainer
+# Adaptive AI Security Awareness Trainer
 
-An RL agent (Thompson Sampling) learns which phishing *tactic* each employee is weak to, an LLM writes contextualized training scenarios for that tactic, and a simulated employee's response updates the agent.
+A closed-loop adaptive cybersecurity awareness trainer that uses a Multi-Armed Bandit (**Thompson Sampling** with Beta posteriors) to discover which phishing tactic each employee is most vulnerable to, an LLM to generate authentic contextual phishing scenarios, and either a synthetic employee or a live human responding.
 
-**Status:** Stages 1–6 done — full adaptive loop runs end-to-end with a React dashboard.
+> **Simulation-Only Security Project:** Purely synthetic employees, safe demonstration domains (`.example.com` / `.test`), no real emails, no real credentials, zero external attack surface.
 
-- Full design: [`docs/BLUEPRINT.md`](docs/BLUEPRINT.md)
-- Stack: React + TypeScript · Node/Express + TypeScript · MongoDB · Python/FastAPI + scikit-learn · Groq API
+---
 
-> This is a **simulation-only security-awareness project**: synthetic employees, fictional scenarios shown only inside the app, no real emails, no credential collection, no real targets.
+## System Architecture
 
-## Quick start
+Deliberately simple, single-service Python architecture:
+- **Backend & AI Engine:** Python + FastAPI in a single process.
+- **Database:** Relational SQLite via SQLAlchemy (`trainer.db`) — zero server setup.
+- **Frontend Dashboard:** Single-page static HTML + Vanilla JS + Chart.js from CDN (no npm, no React, no build steps).
+- **LLM Scenario Generator:** Groq API (`llama-3.1-8b-instant` by default) with an offline template fallback library.
 
-Requires: Python 3.12+, Node 22+, and a local MongoDB on `27017`.
-
-```bash
-# 1. Python AI service (bandit, behavior model, freshness, scenario lint)
-cd ai-service
-pip install fastapi "uvicorn[standard]" httpx pydantic scikit-learn matplotlib
-python classifier.py train        # trains the simulated behavior model (once)
-python -m uvicorn api:app --port 8000
-
-# 2. Seed MongoDB with the canonical 100-employee workforce
-#    (new terminal)
-node database/init.js
-node database/seed.js             # requires the Python service above
-
-# 3. Backend API (Express + TS)
-cd backend
-npm install
-npm run dev                       # http://localhost:4000
-
-# 4. Dashboard (React + TS, solar-light theme)
-cd frontend
-npm install
-npm run dev                       # http://localhost:5173
+```
+phishing-trainer/
+├── app/
+│   ├── main.py            # FastAPI app & all API routes
+│   ├── bandit.py           # Thompson Sampling Beta posteriors (select/update)
+│   ├── random_selector.py  # Random baseline comparison selector
+│   ├── reward.py           # Response → reward mapping (Detection reward & Safety score)
+│   ├── simulator.py        # Synthetic employee susceptibility & response probability model
+│   ├── llm.py               # Groq LLM client, schema validation & fallback templates
+│   ├── models.py            # SQLAlchemy models: Employee, Session, Scenario, Round
+│   ├── db.py                 # SQLite database engine & session factory
+│   └── schemas.py            # Pydantic request/response schemas
+├── static/
+│   ├── index.html            # 3-panel single-screen dashboard
+│   ├── style.css             # Responsive styling & risk color grading
+│   └── app.js                 # Frontend state, polling & Chart.js rendering
+├── data/
+│   └── seed_employees.py      # Pre-built synthetic workforce seed script
+├── scripts/
+│   └── run_offline_eval.py    # Multi-seed offline evaluation runner (CSVs + PNG figures)
+├── prompts/
+│   └── system_prompt.txt      # LLM system prompt & JSON schema
+├── requirements.txt
+├── .env.example
+└── README.md
 ```
 
-Open `http://localhost:5173` — pick an employee, start a session (probabilistic /
-classifier / **you as the employee**), watch the bandit's posteriors move, and run
-experiment grids in the Analytics tab.
+---
 
-### Standalone tools (no servers needed)
+## Quickstart (Single Command Run)
 
 ```bash
-cd ai-service
-python bandit.py              # watch Thompson Sampling learn a fake employee's weak spot
-python employee_simulator.py  # inspect the synthetic workforce
-python -m pytest              # run the test suite
-python run_experiment.py      # full offline evaluation -> results/ (CSVs + figures)
-python generate_scenarios.py  # LLM-first scenario generation (template fallback)
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. (Optional) Set your Groq API key for online LLM generation
+cp .env.example .env
+# Edit .env with your GROQ_API_KEY (if unset, built-in fallback templates are used)
+
+# 3. Launch the application
+uvicorn app.main:app --reload --port 8000
 ```
 
-### Live-demo flow (Stages 6 UI coming next)
+Open `http://localhost:8000` in your browser.
 
-1. `POST /api/demo/warm-start {"employee_id": "...", "rounds": 50}` — pre-seed a profile.
-2. `POST /api/training/sessions {"employee_id": "...", "selector": "thompson", "behavior_source": "human", "mode": "demo", "inherit_bandit_from": "<warm session id>"}` — you are the employee.
-3. `POST /api/training/sessions/:id/rounds` — get a scenario; `PATCH .../rounds/:n/response {"response": "click"}` — answer.
+---
 
-## Development stages
+## How It Works
 
-| Stage | Scope | Status |
-|-------|-------|--------|
-| 1 | Bandit + reward + employee simulator + tests | done |
-| 2 | Offline evaluation (TS vs random, regret curves) | done — TS beats random 188 vs 127 reward, regret 12.5 vs 73.8 |
-| 3 | LLM scenario generation + freshness | done — Groq-first with template fallback, schema + safety lint, TF-IDF freshness |
-| 4 | FastAPI service + behavior classifier | done — 11 stateless endpoints; classifier at Bayes ceiling (0.47 acc), TS converges 10/10 through it |
-| 5 | MongoDB + Express API + full evaluation runs | done — 100-employee seed, session/round/batch/export/experiments endpoints; API grid: TS 90.1 vs random 63.3 reward, 100% discovery |
-| 6 | React dashboard + docs + demo recording | done — solar-light dashboard: employee tiles, live inbox (human mode), posterior bars, reward/response/share charts, experiment runner |
-| 5 | MongoDB + Express API + full evaluation runs | pending |
-| 6 | React dashboard + docs + demo recording | pending |
+1. **Thompson Sampling Selection:**
+   - Each tactic arm maintains a belief distribution $\text{Beta}(\alpha_k, \beta_k)$ initialized to $\text{Beta}(1, 1)$.
+   - Each round samples $\tilde{\theta}_k \sim \text{Beta}(\alpha_k, \beta_k)$ and picks $k^* = \arg\max \tilde{\theta}_k$.
+
+2. **Dual Reward Mapping:**
+   - **Detection Reward (Drives Bandit):**
+     $$\text{credentials} \to 1.0, \quad \text{click} \to 0.7, \quad \text{ignore} \to 0.3, \quad \text{report} \to 0.0$$
+     *Learns the employee's weakest spot rather than avoiding it.*
+   - **Safety Score (Reported Only):**
+     $$\text{report} \to 1.0, \quad \text{ignore} \to 0.6, \quad \text{click} \to 0.2, \quad \text{credentials} \to 0.0$$
+
+3. **Fractional Posterior Update:**
+   $$\alpha_k \leftarrow \alpha_k + r, \quad \beta_k \leftarrow \beta_k + (1 - r)$$
+
+---
+
+## Offline Evaluation (Paper / Report Figures)
+
+Run the standalone evaluation grid across 20+ seeds and all employee personas:
+
+```bash
+python scripts/run_offline_eval.py
+```
+
+Generated artifacts in `results/`:
+- `results/evaluation_summary.csv` — numerical reward and regret summary
+- `results/cumulative_reward_comparison.png` — Thompson Sampling vs Random baseline reward curves
+- `results/regret_curves_comparison.png` — Sublinear regret proof
+- `results/optimal_arm_selection_rate.png` — Convergence towards >90% weak arm focus
