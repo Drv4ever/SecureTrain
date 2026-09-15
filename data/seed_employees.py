@@ -22,6 +22,10 @@ def seed_employees(db: Session, force: bool = False) -> list:
         return db.query(Employee).all()
 
     default_data = get_default_employees()
+    if not any("Demo Employee" in item.name for item in default_data):
+        from app.simulator import SimulatedEmployee
+        default_data.append(SimulatedEmployee(name="Demo Employee", role="Employee", department="General",
+                                               susceptibility={tactic: 0.5 for tactic in ("urgency", "authority", "invoice", "credential")}))
     inserted = []
     for emp_data in default_data:
         emp = Employee(

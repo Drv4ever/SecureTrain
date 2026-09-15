@@ -1,94 +1,35 @@
-# Adaptive AI Security Awareness Trainer
+# SecureTrain
 
-A closed-loop adaptive cybersecurity awareness trainer that uses a Multi-Armed Bandit (**Thompson Sampling** with Beta posteriors) to discover which phishing tactic each employee is most vulnerable to, an LLM to generate authentic contextual phishing scenarios, and either a synthetic employee or a live human responding.
+SecureTrain is a simulation-only security-awareness trainer. A FastAPI service stores assignments and round history, Thompson Sampling selects the next tactic, an optional Groq integration generates scenarios, and a React/Vite dashboard supports admin and employee workflows.
 
-> **Simulation-Only Security Project:** Purely synthetic employees, safe demonstration domains (`.example.com` / `.test`), no real emails, no real credentials, zero external attack surface.
+## Run locally
 
----
-
-## System Architecture
-
-Deliberately simple, single-service Python architecture:
-- **Backend & AI Engine:** Python + FastAPI in a single process.
-- **Database:** Relational SQLite via SQLAlchemy (`trainer.db`) — zero server setup.
-- **Frontend Dashboard:** Single-page static HTML + Vanilla JS + Chart.js from CDN (no npm, no React, no build steps).
-- **LLM Scenario Generator:** Groq API (`llama-3.1-8b-instant` by default) with an offline template fallback library.
-
-```
-phishing-trainer/
-├── app/
-│   ├── main.py            # FastAPI app & all API routes
-│   ├── bandit.py           # Thompson Sampling Beta posteriors (select/update)
-│   ├── random_selector.py  # Random baseline comparison selector
-│   ├── reward.py           # Response → reward mapping (Detection reward & Safety score)
-│   ├── simulator.py        # Synthetic employee susceptibility & response probability model
-│   ├── llm.py               # Groq LLM client, schema validation & fallback templates
-│   ├── models.py            # SQLAlchemy models: Employee, Session, Scenario, Round
-│   ├── db.py                 # SQLite database engine & session factory
-│   └── schemas.py            # Pydantic request/response schemas
-├── static/
-│   ├── index.html            # 3-panel single-screen dashboard
-│   ├── style.css             # Responsive styling & risk color grading
-│   └── app.js                 # Frontend state, polling & Chart.js rendering
-├── data/
-│   └── seed_employees.py      # Pre-built synthetic workforce seed script
-├── scripts/
-│   └── run_offline_eval.py    # Multi-seed offline evaluation runner (CSVs + PNG figures)
-├── prompts/
-│   └── system_prompt.txt      # LLM system prompt & JSON schema
-├── requirements.txt
-├── .env.example
-└── README.md
-```
-
----
-
-## Quickstart (Single Command Run)
-
-```bash
-# 1. Install dependencies
+```powershell
+Copy-Item .env.example .env
+# Set JWT_SECRET and COMPANY_NAME. GROQ_API_KEY is optional.
 pip install -r requirements.txt
-
-# 2. (Optional) Set your Groq API key for online LLM generation
-cp .env.example .env
-# Edit .env with your GROQ_API_KEY (if unset, built-in fallback templates are used)
-
-# 3. Launch the application
+python scripts/reset_db.py
+cd frontend; npm install; npm run build; cd ..
 uvicorn app.main:app --reload --port 8000
 ```
 
-Open `http://localhost:8000` in your browser.
+The React build is served at `/` after `frontend/npm run build`. Without a Groq key, scenarios use the safe fallback templates and are labelled in the employee UI.
 
----
+## Demo data
 
-## How It Works
+`python scripts/reset_db.py` drops and recreates the configured SQLite schema, then seeds exactly five synthetic employees, one demo admin, and no assignment history. It is the repeatable reset path; do not hand-edit `trainer.db`.
 
-1. **Thompson Sampling Selection:**
-   - Each tactic arm maintains a belief distribution $\text{Beta}(\alpha_k, \beta_k)$ initialized to $\text{Beta}(1, 1)$.
-   - Each round samples $\tilde{\theta}_k \sim \text{Beta}(\alpha_k, \beta_k)$ and picks $k^* = \arg\max \tilde{\theta}_k$.
+The reset script creates `admin@demo.securetrain.test` / `AdminDemo123!` and employee seed accounts with `EmployeeDemo123!` for local demonstration only. Set `VITE_SHOW_DEMO_CREDENTIALS=true` only for a local demo build.
 
-2. **Dual Reward Mapping:**
-   - **Detection Reward (Drives Bandit):**
-     $$\text{credentials} \to 1.0, \quad \text{click} \to 0.7, \quad \text{ignore} \to 0.3, \quad \text{report} \to 0.0$$
-     *Learns the employee's weakest spot rather than avoiding it.*
-   - **Safety Score (Reported Only):**
-     $$\text{report} \to 1.0, \quad \text{ignore} \to 0.6, \quad \text{click} \to 0.2, \quad \text{credentials} \to 0.0$$
+## API highlights
 
-3. **Fractional Posterior Update:**
-   $$\alpha_k \leftarrow \alpha_k + r, \quad \beta_k \leftarrow \beta_k + (1 - r)$$
+- `/auth/register`, `/auth/login` — JWT authentication for admins and employees.
+- `/admin/training-assignments` — configurable title, 1–100 rounds, tactics, and schedule.
+- `/employee/round/{id}/respond` and `/employee/round/{id}/feedback` — response, classifier-informed reward, and teaching feedback.
+- `/admin/employees/{id}` — employee round history.
+- `/admin/reports/export?format=csv|pdf` — organization or employee export.
+- `/admin/analytics/sampling?rounds=&repetitions=&seed=` — configurable Thompson/random benchmark.
 
----
+Set `JWT_SECRET`, `COMPANY_NAME`, and database credentials through environment configuration in production. Never commit `.env` or real API keys. If the previously exposed Groq key was valid, revoke it in the Groq dashboard and scrub it from any public git history.
 
-## Offline Evaluation (Paper / Report Figures)
-
-Run the standalone evaluation grid across 20+ seeds and all employee personas:
-
-```bash
-python scripts/run_offline_eval.py
-```
-
-Generated artifacts in `results/`:
-- `results/evaluation_summary.csv` — numerical reward and regret summary
-- `results/cumulative_reward_comparison.png` — Thompson Sampling vs Random baseline reward curves
-- `results/regret_curves_comparison.png` — Sublinear regret proof
-- `results/optimal_arm_selection_rate.png` — Convergence towards >90% weak arm focus
+Notifications are intentionally future scope for this v1. The legacy `notification_seen` column remains for backward-compatible migrations but is not presented as an active product capability.

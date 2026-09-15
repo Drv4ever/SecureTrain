@@ -11,13 +11,19 @@ import random
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = BASE_DIR / "prompts"
 SYSTEM_PROMPT_PATH = PROMPTS_DIR / "system_prompt.txt"
+
+from dotenv import load_dotenv
+
+ENV_PATH = BASE_DIR / ".env"
+ENV_EXAMPLE_PATH = BASE_DIR / ".env.example"
+
+if ENV_PATH.exists():
+    load_dotenv(ENV_PATH)
+else:
+    load_dotenv(ENV_EXAMPLE_PATH)
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
@@ -198,10 +204,14 @@ def generate_scenario_with_groq(
                 {"role": "user", "content": user_prompt},
             ],
             temperature=0.7,
-            response_format={"type": "json_object"},
         )
 
         raw_json = response.choices[0].message.content.strip()
+        if raw_json.startswith("```"):
+            raw_json = raw_json.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+        if not raw_json.startswith("{"):
+            start, end = raw_json.find("{"), raw_json.rfind("}")
+            raw_json = raw_json[start:end + 1] if start >= 0 and end > start else raw_json
         data = json.loads(raw_json)
 
         if validate_scenario_schema(data, tactic):
@@ -224,7 +234,41 @@ def generate_scenario(
     if GROQ_API_KEY:
         llm_scenario = generate_scenario_with_groq(tactic, role, department, employee_name)
         if llm_scenario:
+            llm_scenario["source"] = "groq"
             return llm_scenario
 
     # 2. Fallback template library
-    return get_fallback_scenario(tactic, role, department)
+    fallback = get_fallback_scenario(tactic, role, department)
+    fallback["source"] = "fallback"
+    return fallback
+
+
+def generate_report_analysis(rounds: list[dict], employee_name: str = "Employee") -> str:
+    """Generate a data-grounded report narrative with a safe fallback."""
+    weakest = min(rounds, key=lambda item: item.get("safety_score", 0)).get("tactic") if rounds else "the assessed tactics"
+    scores = ", ".join(f"R{item.get('round_number')}: {item.get('safety_score', 0):.0%}" for item in rounds[-8:])
+    if GROQ_API_KEY and rounds:
+        try:
+            from groq import Groq
+            response = Groq(api_key=GROQ_API_KEY).chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {"role": "system", "content": "Write a concise, supportive cybersecurity training analysis. Use only the supplied data. Do not give attack instructions. Return 2 short paragraphs."},
+                    {"role": "user", "content": f"Employee: {employee_name}\nRound data: {json.dumps(rounds)}"},
+                ], temperature=0.2,
+            )
+            text = response.choices[0].message.content.strip()
+            if text:
+                return text
+        except Exception as exc:
+            print(f"[LLM Warning] Report analysis failed ({exc}); using fallback.")
+    return (f"{employee_name}'s lowest observed safety result was in {weakest}. "
+            f"Round scores were {scores or 'not available'}. Continue verifying unusual requests through a trusted channel and report suspicious messages.")
+
+
+def generate_feedback(tactic: str, response: str, indicators: list[str]) -> str:
+    """Explain the outcome without exposing real-world attack guidance."""
+    passed = response == "report"
+    if passed:
+        return f"Good catch. You reported this simulated {tactic} message instead of interacting with it. The warning signs included {', '.join(indicators[:3])}."
+    return f"This was a simulated {tactic} phishing exercise. The message used {', '.join(indicators[:3])}; verify the sender through a trusted channel and report suspicious messages rather than interacting with links or sharing credentials."

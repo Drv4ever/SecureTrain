@@ -15,10 +15,8 @@ Two reward signals are computed and stored per round, but only ONE drives the ba
     credentials -> 0.0
 """
 
-from typing import Dict, Tuple
-
-TACTICS: Tuple[str, ...] = ("urgency", "authority", "invoice", "credential")
-RESPONSES: Tuple[str, ...] = ("ignore", "report", "click", "credentials")
+from typing import Dict
+from app.config import TACTICS, RESPONSES
 
 DETECTION_REWARDS: Dict[str, float] = {
     "credentials": 1.0,
@@ -35,11 +33,14 @@ SAFETY_REWARDS: Dict[str, float] = {
 }
 
 
-def get_detection_reward(response: str) -> float:
+def get_detection_reward(response: str, classifier_score: float | None = None) -> float:
     """Return the bandit learning reward in [0.0, 1.0]."""
     if response not in DETECTION_REWARDS:
         raise ValueError(f"Unknown response '{response}', expected one of {RESPONSES}")
-    return DETECTION_REWARDS[response]
+    base = DETECTION_REWARDS[response]
+    if classifier_score is None:
+        return base
+    return round((base + max(0.0, min(1.0, classifier_score))) / 2, 4)
 
 
 def get_safety_score(response: str) -> float:

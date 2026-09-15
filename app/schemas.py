@@ -12,6 +12,8 @@ class EmployeeOut(BaseModel):
     department: str
     susceptibility: Dict[str, float]
     created_at: datetime
+    email: Optional[str] = None
+    company_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -45,6 +47,7 @@ class ScenarioOut(BaseModel):
     subject: str
     body: str
     indicators: List[str]
+    source: Optional[str] = "fallback"
     created_at: datetime
 
     class Config:
@@ -61,6 +64,10 @@ class RoundOut(BaseModel):
     detection_reward: Optional[float] = None
     safety_score: Optional[float] = None
     bandit_state_after: Optional[Dict[str, dict]] = None
+    feedback_text: Optional[str] = None
+    classifier_score: Optional[float] = None
+    presented_at: Optional[datetime] = None
+    response_time_seconds: Optional[float] = None
     created_at: datetime
 
     class Config:
@@ -105,3 +112,60 @@ class SessionStateResponse(BaseModel):
     cumulative_reward: float
     history: List[HistoryPoint]
     baseline_cumulative: List[float]  # Random baseline comparison points
+
+
+class RegisterRequest(BaseModel):
+    email: str
+    password: str = Field(min_length=8)
+    name: str
+    role: str = Field(default="employee", pattern="^(employee|client_admin)$")
+    company_id: Optional[int] = None
+    department: str = "General"
+    employee_role: str = "Employee"
+
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str
+    company_id: int
+    user_id: int
+
+
+class AdminSettingsRequest(BaseModel):
+    training_frequency_days: int = Field(default=7, ge=1, le=365)
+    active_tactics: List[str] = Field(default_factory=lambda: ["urgency", "authority", "invoice", "credential"])
+
+
+class AssignmentCreateRequest(BaseModel):
+    employee_id: int
+    title: str = "Security awareness training"
+    total_rounds: int = Field(default=10, ge=1, le=100)
+    active_tactics: List[str] = Field(default_factory=lambda: ["urgency", "authority", "invoice", "credential"])
+    scheduled_at: Optional[datetime] = None
+
+
+class AssignmentResponse(BaseModel):
+    id: int
+    employee_id: int
+    title: str
+    total_rounds: int
+    completed_rounds: int
+    active_tactics: List[str]
+    scheduled_at: Optional[datetime]
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+    status: str
+    report: Optional[Dict] = None
+
+
+class CompanySettingsOut(BaseModel):
+    company_id: int
+    company_name: str
+    training_frequency_days: int
+    active_tactics: List[str]
