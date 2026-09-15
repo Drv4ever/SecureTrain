@@ -16,7 +16,7 @@ coverage/
 # Env & secrets
 .env
 .env.*
-!.env.example
+.env.example
 
 # Local data
 mongo-data/
