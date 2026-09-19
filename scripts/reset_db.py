@@ -10,9 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.db import Base, SessionLocal, engine, init_db
-from app.models import Company, ClientAdmin, Employee, Round, Scenario, Session, TrainingAssignment, TrainingReport
-from app.auth import hash_password
+from backend.app.db import Base, SessionLocal, engine, init_db
+from backend.app.models import Company, ClientAdmin, Employee, Round, Scenario, Session, TrainingAssignment, TrainingReport
+from backend.app.auth import hash_password
 from data.seed_employees import seed_employees
 
 
@@ -39,3 +39,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

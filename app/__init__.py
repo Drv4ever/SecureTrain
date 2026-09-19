@@ -1,1 +1,0 @@
-"""SecureTrain application package."""

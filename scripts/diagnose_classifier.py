@@ -99,3 +99,4 @@ def run_diagnosis():
 
 if __name__ == "__main__":
     run_diagnosis()
+

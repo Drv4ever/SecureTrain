@@ -18,10 +18,23 @@ python scripts/ingest_rag.py
 ```
 
 The classifier artifact, Chroma vector store, and SQLite database are generated locally and intentionally excluded from Git.
+
+## Repository layout
+
+```text
+backend/app/       FastAPI routes, authentication, database, classifier, and domain logic
+frontend/           React/Vite client
+rag/indicators/    Markdown phishing-indicator knowledge base
+rag/retriever.py   ChromaDB and sentence-transformers retrieval service
+llm/service.py     Groq/fallback scenario and feedback generation
+llm/prompts/       LLM system prompts
+scripts/           Training, ingestion, reset, and evaluation utilities
+tests/             Backend tests
+```
 pip install -r requirements.txt
 python scripts/reset_db.py
 cd frontend; npm install; npm run build; cd ..
-uvicorn app.main:app --reload --port 8000
+uvicorn backend.app.main:app --reload --port 8000
 ```
 
 The React build is served at `/` after `frontend/npm run build`. Without a Groq key, scenarios use the safe fallback templates and are labelled in the employee UI.

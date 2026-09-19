@@ -1,4 +1,4 @@
-from app.classifier import load_classifier, get_classifier_info, score_response
+from backend.app.classifier import load_classifier, get_classifier_info, score_response
 
 
 def test_classifier_loading_and_info():
@@ -21,3 +21,4 @@ def test_classifier_scoring_determinism():
     s2 = score_response("urgency", "Accountant", "Finance", last_response="none", times_seen=0, round_no=1)
     assert s1 == s2
     assert 0.0 <= s1 <= 1.0
+
