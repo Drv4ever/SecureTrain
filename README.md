@@ -2,6 +2,7 @@
 
 SecureTrain is a simulation-only security-awareness trainer. A FastAPI service stores assignments and round history, Thompson Sampling selects the next tactic, an optional Groq integration generates scenarios, and a React/Vite dashboard supports admin and employee workflows.
 
+
 ## Run locally
 
 ```powershell
@@ -18,7 +19,8 @@ python scripts/ingest_rag.py
 ```
 
 The classifier artifact, Chroma vector store, and SQLite database are generated locally and intentionally excluded from Git.
-
+##SecureTrain Architecture Diagram
+<img width="5473" height="5845" alt="diagram (1)" src="https://github.com/user-attachments/assets/6f2f2962-c51a-4c62-9a28-9c655b797085" />
 ## Repository layout
 
 ```text
@@ -59,6 +61,5 @@ Set `JWT_SECRET`, `COMPANY_NAME`, and database credentials through environment c
 Notifications are intentionally future scope for this v1. The legacy `notification_seen` column remains for backward-compatible migrations but is not presented as an active product capability.
 
 
-SecureTrain Architecture Diagram
-<img width="5473" height="5845" alt="diagram (1)" src="https://github.com/user-attachments/assets/6f2f2962-c51a-4c62-9a28-9c655b797085" />
+
 
