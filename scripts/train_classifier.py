@@ -25,8 +25,8 @@ import sys
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from app.reward import RESPONSES, TACTICS
-from app.simulator import SimulatedEmployee, get_default_employees, sample_response
+from backend.app.reward import RESPONSES, TACTICS
+from backend.app.simulator import SimulatedEmployee, get_default_employees, sample_response
 
 DATA_DIR = BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -174,3 +174,4 @@ def train_and_save():
 
 if __name__ == "__main__":
     train_and_save()
+

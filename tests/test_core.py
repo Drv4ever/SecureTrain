@@ -2,8 +2,8 @@ import os
 
 os.environ.setdefault("JWT_SECRET", "test-only-secret")
 
-from app.auth import create_token, decode_token, hash_password, verify_password
-from app.reward import get_detection_reward, get_safety_score
+from backend.app.auth import create_token, decode_token, hash_password, verify_password
+from backend.app.reward import get_detection_reward, get_safety_score
 
 
 def test_password_and_jwt_round_trip():
@@ -18,3 +18,4 @@ def test_response_reward_pipeline_is_bounded_and_directional():
     assert get_detection_reward("credentials") == 1.0
     assert 0.0 <= get_detection_reward("click", 0.9) <= 1.0
     assert get_detection_reward("report", 0.0) == 0.0
+

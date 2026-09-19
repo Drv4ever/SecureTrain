@@ -27,10 +27,10 @@ if str(ROOT_DIR) not in sys.path:
 import matplotlib.pyplot as plt
 import numpy as np
 
-from app.bandit import ThompsonSampler
-from app.random_selector import RandomSelector
-from app.reward import DETECTION_REWARDS, TACTICS, get_detection_reward
-from app.simulator import SimulatedEmployee, get_default_employees, response_probabilities, sample_response
+from backend.app.bandit import ThompsonSampler
+from backend.app.random_selector import RandomSelector
+from backend.app.reward import DETECTION_REWARDS, TACTICS, get_detection_reward
+from backend.app.simulator import SimulatedEmployee, get_default_employees, response_probabilities, sample_response
 
 RESULTS_DIR = ROOT_DIR / "results"
 RESULTS_DIR.mkdir(exist_ok=True)
@@ -233,3 +233,4 @@ def plot_results(all_results: Dict[str, list], n_rounds: int):
 
 if __name__ == "__main__":
     run_evaluation_suite(n_rounds=200, n_seeds=20)
+

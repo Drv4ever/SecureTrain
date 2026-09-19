@@ -9,9 +9,9 @@ if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
 from sqlalchemy.orm import Session
-from app.db import SessionLocal, init_db
-from app.models import Employee
-from app.simulator import get_default_employees
+from backend.app.db import SessionLocal, init_db
+from backend.app.models import Employee
+from backend.app.simulator import get_default_employees
 
 
 def seed_employees(db: Session, force: bool = False) -> list:
@@ -23,7 +23,7 @@ def seed_employees(db: Session, force: bool = False) -> list:
 
     default_data = get_default_employees()
     if not any("Demo Employee" in item.name for item in default_data):
-        from app.simulator import SimulatedEmployee
+        from backend.app.simulator import SimulatedEmployee
         default_data.append(SimulatedEmployee(name="Demo Employee", role="Employee", department="General",
                                                susceptibility={tactic: 0.5 for tactic in ("urgency", "authority", "invoice", "credential")}))
     inserted = []
@@ -55,3 +55,4 @@ if __name__ == "__main__":
             print(f"  [{e.id}] {e.name} - Weakness: {e.susceptibility}")
     finally:
         db.close()
+
