@@ -21,6 +21,9 @@ coverage/
 # Local data
 mongo-data/
 *.log
+trainer.db
+data/classifier.pkl
+data/chroma_store/
 
 # Generated experiment output (keep .gitkeep)
 results/*.csv

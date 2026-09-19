@@ -266,9 +266,121 @@ def generate_report_analysis(rounds: list[dict], employee_name: str = "Employee"
             f"Round scores were {scores or 'not available'}. Continue verifying unusual requests through a trusted channel and report suspicious messages.")
 
 
-def generate_feedback(tactic: str, response: str, indicators: list[str]) -> str:
-    """Explain the outcome without exposing real-world attack guidance."""
+def build_feedback_prompt(
+    tactic: str,
+    response: str,
+    scenario_indicators: list[str],
+    retrieved_docs: list[dict],
+) -> str:
+    """Build a structured feedback prompt separating reference material from round context."""
     passed = response == "report"
+    outcome = "correctly reported this simulation" if passed else f"responded with '{response}'"
+    indicators_text = "\n".join(f"- {ind}" for ind in scenario_indicators[:4])
+
+    ref_blocks = []
+    for doc in retrieved_docs[:3]:
+        title = doc.get("title", "Reference")
+        source = doc.get("source", "Security Reference")
+        snippet = doc.get("snippet", doc.get("text", ""))[:300]
+        ref_blocks.append(f"[{title}] (Source: {source})\n{snippet}")
+    reference_section = "\n\n".join(ref_blocks) if ref_blocks else "No reference material available."
+
+    return f"""You are a cybersecurity awareness coach delivering post-exercise feedback.
+
+=== REFERENCE MATERIAL (documented phishing patterns for this tactic) ===
+{reference_section}
+
+=== ROUND SUMMARY ===
+Tactic tested: {tactic}
+Employee action: {outcome}
+Scenario warning signs:
+{indicators_text}
+
+=== YOUR TASK ===
+Write 2–3 short, supportive sentences of feedback grounded in the reference material above.
+- If the employee reported: affirm what they spotted, referencing one specific documented indicator.
+- If the employee clicked or entered credentials: explain what pattern was used and what to do next time.
+Do NOT repeat attack instructions. Do NOT use jargon-heavy language. Be encouraging."""
+
+
+def generate_feedback(
+    tactic: str,
+    response: str,
+    indicators: list[str],
+    retriever=None,
+) -> tuple[str, list[dict]]:
+    """Generate RAG-grounded post-round feedback.
+
+    Returns:
+        (feedback_text, retrieved_indicators)
+    """
+    # Attempt to retrieve reference documents for this tactic
+    retrieved_docs: list[dict] = []
+    if retriever is None:
+        try:
+            from app.rag import get_retriever
+            retriever = get_retriever()
+        except Exception:
+            retriever = None
+
+    if retriever:
+        try:
+            retrieved_docs = retriever.retrieve(tactic, k=3)
+        except Exception as exc:
+            print(f"[LLM Warning] RAG retrieval failed ({exc}); proceeding without reference context.")
+
+    # Try Groq with RAG-grounded prompt
+    if GROQ_API_KEY:
+        try:
+            from groq import Groq
+
+            prompt = build_feedback_prompt(tactic, response, indicators, retrieved_docs)
+            resp = Groq(api_key=GROQ_API_KEY).chat.completions.create(
+                model=GROQ_MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a supportive cybersecurity awareness trainer. "
+                            "Your feedback is grounded only in the provided reference material. "
+                            "Never provide instructions that could help attackers."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.3,
+            )
+            text = resp.choices[0].message.content.strip()
+            if text:
+                return text, retrieved_docs
+        except Exception as exc:
+            print(f"[LLM Warning] Groq feedback generation failed ({exc}); using grounded fallback.")
+
+    # Fallback: synthesise from retrieved indicators without LLM
+    passed = response == "report"
+    ind_text = ", ".join(indicators[:3]) if indicators else f"{tactic} techniques"
+
+    if retrieved_docs:
+        ref = retrieved_docs[0]
+        ref_line = f" According to documented patterns ({ref.get('title', 'Security Reference')}): {ref.get('snippet', '')[:160].rstrip()}."
+    else:
+        ref_line = ""
+
     if passed:
-        return f"Good catch. You reported this simulated {tactic} message instead of interacting with it. The warning signs included {', '.join(indicators[:3])}."
-    return f"This was a simulated {tactic} phishing exercise. The message used {', '.join(indicators[:3])}; verify the sender through a trusted channel and report suspicious messages rather than interacting with links or sharing credentials."
+        feedback = (
+            f"Good catch. You correctly reported this simulated {tactic} message. "
+            f"The key warning signs were: {ind_text}.{ref_line}"
+        )
+    else:
+        action_note = {
+            "click": "clicking embedded links",
+            "credentials": "submitting credentials",
+            "ignore": "ignoring without reporting",
+        }.get(response, "interacting with the message")
+        feedback = (
+            f"This was a simulated {tactic} phishing exercise. "
+            f"The message used {ind_text}.{ref_line} "
+            f"Instead of {action_note}, verify the sender through a trusted channel and use the Report button."
+        )
+
+    return feedback, retrieved_docs

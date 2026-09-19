@@ -7,6 +7,17 @@ SecureTrain is a simulation-only security-awareness trainer. A FastAPI service s
 ```powershell
 Copy-Item .env.example .env
 # Set JWT_SECRET and COMPANY_NAME. GROQ_API_KEY is optional.
+
+## First-time local setup
+
+Before starting the server after cloning, generate the local classifier and RAG index:
+
+```bash
+python scripts/train_classifier.py
+python scripts/ingest_rag.py
+```
+
+The classifier artifact, Chroma vector store, and SQLite database are generated locally and intentionally excluded from Git.
 pip install -r requirements.txt
 python scripts/reset_db.py
 cd frontend; npm install; npm run build; cd ..

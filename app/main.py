@@ -68,6 +68,13 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     init_db()
+    from app.classifier import load_classifier
+    load_classifier()
+    try:
+        from app.rag import get_retriever
+        get_retriever()
+    except Exception as exc:
+        print(f"[Startup Warning] RAG retriever init failed: {exc}")
     db = next(get_db())
     try:
         company = db.query(Company).first()
@@ -82,6 +89,13 @@ def on_startup():
         db.commit()
     finally:
         db.close()
+
+
+@app.get("/api/classifier/info")
+def api_classifier_info(user=Depends(require_role("client_admin", "super_admin"))):
+    """Return model health metrics and diagnostics for administrators."""
+    from app.classifier import get_classifier_info
+    return get_classifier_info()
 
 
 @app.post("/auth/register", response_model=AuthResponse, status_code=201)
@@ -325,8 +339,27 @@ def api_run_round(session_id: int, db: Session = Depends(get_db), user=Depends(o
         susceptibility=employee.susceptibility,
     )
     resp = sample_response(sim_emp, chosen_tactic)
-    det_reward = score_response(chosen_tactic, session.employee.role, session.employee.department, resp,
-                                times_seen=len(session.rounds), round_no=round_no)
+    prev_round = (
+        db.query(Round)
+        .filter(Round.session_id == session.id, Round.tactic_selected == chosen_tactic, Round.response != None)  # noqa: E711
+        .order_by(Round.round_number.desc())
+        .first()
+    )
+    last_resp = prev_round.response if prev_round else "none"
+    tactic_times_seen = (
+        db.query(Round)
+        .filter(Round.session_id == session.id, Round.tactic_selected == chosen_tactic, Round.response != None)  # noqa: E711
+        .count()
+    )
+    det_reward = score_response(
+        chosen_tactic,
+        session.employee.role,
+        session.employee.department,
+        last_response=last_resp,
+        times_seen=tactic_times_seen,
+        round_no=round_no,
+        current_response=resp,
+    )
     safe_score = get_safety_score(resp)
 
     # Update sampler & session bandit state
@@ -379,8 +412,27 @@ def api_complete_human_round(
         return round_rec
 
     resp = req.response
-    classifier = score_response(round_rec.tactic_selected, session.employee.role, session.employee.department, resp,
-                                times_seen=len(session.rounds), round_no=round_rec.round_number)
+    prev_round = (
+        db.query(Round)
+        .filter(Round.session_id == session_id, Round.tactic_selected == round_rec.tactic_selected, Round.response != None)  # noqa: E711
+        .order_by(Round.round_number.desc())
+        .first()
+    )
+    last_resp = prev_round.response if prev_round else "none"
+    tactic_times_seen = (
+        db.query(Round)
+        .filter(Round.session_id == session_id, Round.tactic_selected == round_rec.tactic_selected, Round.response != None)  # noqa: E711
+        .count()
+    )
+    classifier = score_response(
+        round_rec.tactic_selected,
+        session.employee.role,
+        session.employee.department,
+        last_response=last_resp,
+        times_seen=tactic_times_seen,
+        round_no=round_rec.round_number,
+        current_response=resp,
+    )
     det_reward = get_detection_reward(resp, classifier)
     safe_score = get_safety_score(resp)
 
@@ -399,7 +451,19 @@ def api_complete_human_round(
     round_rec.classifier_score = classifier
     round_rec.safety_score = safe_score
     if round_rec.scenario:
-        round_rec.feedback_text = generate_feedback(round_rec.tactic_selected, resp, round_rec.scenario.indicators)
+        try:
+            from app.rag import get_retriever
+            _retriever = get_retriever()
+        except Exception:
+            _retriever = None
+        fb_text, fb_indicators = generate_feedback(
+            round_rec.tactic_selected, resp, round_rec.scenario.indicators, retriever=_retriever
+        )
+        round_rec.feedback_text = fb_text
+        round_rec.feedback_indicators = [
+            {"title": d.get("title"), "source": d.get("source"), "snippet": d.get("snippet", d.get("text", ""))[:200]}
+            for d in (fb_indicators or [])
+        ]
     round_rec.bandit_state_after = sampler.get_state()
     if session.assignment:
         finalize_assignment(session.assignment, session, db)
@@ -447,6 +511,19 @@ def list_training_assignments(user=Depends(require_role("client_admin", "super_a
 def employee_assignments(user=Depends(require_role("employee")), db: Session = Depends(get_db)):
     items = db.query(TrainingAssignment).filter(TrainingAssignment.employee_id == int(user["sub"]), TrainingAssignment.company_id == user["company_id"]).order_by(TrainingAssignment.created_at.desc()).all()
     return [assignment_payload(item) for item in items]
+
+
+@app.get("/api/assignments/{assignment_id}/analysis")
+def assignment_analysis(assignment_id: int, user=Depends(require_role("employee", "client_admin", "super_admin")), db: Session = Depends(get_db)):
+    assignment = db.query(TrainingAssignment).filter(TrainingAssignment.id == assignment_id).first()
+    if not assignment or (user.get("role") != "super_admin" and assignment.company_id != user.get("company_id")):
+        raise HTTPException(404, "Assignment not found")
+    if user.get("role") == "employee" and assignment.employee_id != int(user["sub"]):
+        raise HTTPException(404, "Assignment not found")
+    session = (db.query(DbSession).filter(DbSession.assignment_id == assignment.id)
+               .order_by(DbSession.id.desc()).first())
+    analysis = assignment.report.summary if assignment.report else (build_assignment_report(assignment, session) if session else {})
+    return {"assignment": assignment_payload(assignment), "analysis": analysis or {}}
 
 
 @app.post("/employee/assignments/{assignment_id}/start", response_model=RoundOut)
@@ -503,7 +580,11 @@ def employee_respond(round_id: int, req: HumanResponseRequest, user=Depends(requ
 def employee_feedback(round_id: int, user=Depends(require_role("employee")), db: Session = Depends(get_db)):
     round_rec = (db.query(Round).join(DbSession).filter(Round.id == round_id, DbSession.employee_id == int(user["sub"])).first())
     if not round_rec: raise HTTPException(404, "Round not found")
-    return {"round_id": round_id, "feedback_text": round_rec.feedback_text or "Feedback is not available until you respond."}
+    return {
+        "round_id": round_id,
+        "feedback_text": round_rec.feedback_text or "Feedback is not available until you respond.",
+        "feedback_indicators": round_rec.feedback_indicators or [],
+    }
 
 
 @app.get("/admin/employees")
@@ -878,6 +959,9 @@ def api_get_session_state(session_id: int, db: Session = Depends(get_db), user=D
 # ---------- Serve Frontend Dashboard ----------
 
 if FRONTEND_DIST.exists():
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
     app.mount("/app", StaticFiles(directory=str(FRONTEND_DIST), html=True), name="frontend")
 
 

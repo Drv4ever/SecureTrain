@@ -124,6 +124,7 @@ class Round(Base):
     detection_reward = Column(Float, nullable=True)               # [0.0, 1.0] drives bandit
     safety_score = Column(Float, nullable=True)                   # [0.0, 1.0] reported only
     feedback_text = Column(Text, nullable=True)
+    feedback_indicators = Column(JSON, nullable=True)             # Retrieved RAG indicator snippets
     classifier_score = Column(Float, nullable=True)
     presented_at = Column(DateTime, nullable=True)
     response_time_seconds = Column(Float, nullable=True)

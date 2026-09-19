@@ -111,6 +111,16 @@ def generate_dataset(n_samples: int = 5000, seed: int = 42) -> Tuple[List[list],
     return X, y
 
 
+FEATURE_NAMES: List[str] = (
+    [f"tactic_{t}" for t in TACTICS]
+    + [f"role_{r}" for r in ROLES]
+    + [f"department_{d}" for d in DEPARTMENTS]
+    + ["times_seen_norm"]
+    + [f"last_response_{h}" for h in HISTORY_STATES]
+    + ["round_no_norm"]
+)
+
+
 def train_and_save():
     print("Generating observable training data from employee simulator...")
     X, y = generate_dataset(n_samples=5000, seed=42)
@@ -121,7 +131,6 @@ def train_and_save():
 
     print(f"Training Logistic Regression classifier on {len(X_train)} samples...")
     model = LogisticRegression(
-        multi_class="multinomial",
         solver="lbfgs",
         max_iter=1000,
         random_state=42,
@@ -146,6 +155,7 @@ def train_and_save():
         "departments": DEPARTMENTS,
         "tactics": TACTICS,
         "history_states": HISTORY_STATES,
+        "feature_names": FEATURE_NAMES,
         "metrics": {
             "accuracy": round(float(acc), 4),
             "macro_f1": round(float(f1), 4),

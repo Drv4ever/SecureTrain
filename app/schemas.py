@@ -65,6 +65,7 @@ class RoundOut(BaseModel):
     safety_score: Optional[float] = None
     bandit_state_after: Optional[Dict[str, dict]] = None
     feedback_text: Optional[str] = None
+    feedback_indicators: Optional[List[Dict]] = None
     classifier_score: Optional[float] = None
     presented_at: Optional[datetime] = None
     response_time_seconds: Optional[float] = None
