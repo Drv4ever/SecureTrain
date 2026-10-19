@@ -596,8 +596,14 @@ def admin_employees(user=Depends(require_role("client_admin", "super_admin")), d
     for employee in query.all():
         rounds = db.query(Round).join(DbSession).filter(DbSession.employee_id == employee.id, Round.response != None).all()  # noqa: E711
         failures = [r for r in rounds if (r.safety_score or 0) < 0.5]
-        recent_tactics = [r.tactic_selected for r in rounds[-4:]]
-        repeat_clicker = any(recent_tactics[i] == recent_tactics[i + 1] and (rounds[-4 + i].response in {"click", "credentials"}) and (rounds[-4 + i + 1].response in {"click", "credentials"}) for i in range(max(0, len(recent_tactics) - 1))) if len(recent_tactics) > 1 else False
+        recent_rounds = rounds[-4:]
+        recent_tactics = [r.tactic_selected for r in recent_rounds]
+        repeat_clicker = any(
+            recent_tactics[i] == recent_tactics[i + 1]
+            and recent_rounds[i].response in {"click", "credentials"}
+            and recent_rounds[i + 1].response in {"click", "credentials"}
+            for i in range(len(recent_rounds) - 1)
+        )
         result.append({"id": employee.id, "name": employee.name, "email": employee.email, "department": employee.department,
                        "role": employee.role, "rounds": len(rounds), "risk_score": round(1 - (sum(r.safety_score or 0 for r in rounds) / len(rounds)), 3) if rounds else 0.5,
                        "repeat_clicker": repeat_clicker, "failed_rounds": len(failures)})
