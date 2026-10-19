@@ -588,6 +588,32 @@ def employee_feedback(round_id: int, user=Depends(require_role("employee")), db:
     }
 
 
+def completed_session_summaries(db: Session, employee_id: int) -> List[dict]:
+    sessions = (db.query(DbSession)
+                .filter(DbSession.employee_id == employee_id, DbSession.status == "completed")
+                .order_by(DbSession.created_at.asc(), DbSession.id.asc()).all())
+    summaries = []
+    for session in sessions:
+        rounds = [item for item in session.rounds if item.response is not None]
+        if not rounds:
+            continue
+        risk_values = [1 - (item.safety_score if item.safety_score is not None else
+                            item.detection_reward if item.detection_reward is not None else 0.5)
+                       for item in rounds]
+        completed_at = (session.assignment.completed_at if session.assignment and session.assignment.completed_at
+                        else max((item.created_at for item in rounds if item.created_at), default=session.updated_at))
+        summaries.append({
+            "id": session.id,
+            "session_number": len(summaries) + 1,
+            "title": session.assignment.title if session.assignment else "Training session",
+            "risk_score": round(sum(risk_values) / len(risk_values) * 100, 1),
+            "safety_score": round((1 - sum(risk_values) / len(risk_values)) * 100, 1),
+            "rounds_completed": len(rounds),
+            "completed_at": completed_at.isoformat() if completed_at else None,
+        })
+    return summaries
+
+
 @app.get("/admin/employees")
 def admin_employees(user=Depends(require_role("client_admin", "super_admin")), db: Session = Depends(get_db)):
     query = db.query(Employee)
@@ -595,7 +621,7 @@ def admin_employees(user=Depends(require_role("client_admin", "super_admin")), d
     result = []
     for employee in query.all():
         rounds = db.query(Round).join(DbSession).filter(DbSession.employee_id == employee.id, Round.response != None).all()  # noqa: E711
-        failures = [r for r in rounds if (r.safety_score or 0) < 0.5]
+        sessions = completed_session_summaries(db, employee.id)
         recent_rounds = rounds[-4:]
         recent_tactics = [r.tactic_selected for r in recent_rounds]
         repeat_clicker = any(
@@ -605,8 +631,9 @@ def admin_employees(user=Depends(require_role("client_admin", "super_admin")), d
             for i in range(len(recent_rounds) - 1)
         )
         result.append({"id": employee.id, "name": employee.name, "email": employee.email, "department": employee.department,
-                       "role": employee.role, "rounds": len(rounds), "risk_score": round(1 - (sum(r.safety_score or 0 for r in rounds) / len(rounds)), 3) if rounds else 0.5,
-                       "repeat_clicker": repeat_clicker, "failed_rounds": len(failures)})
+                       "role": employee.role, "rounds": len(rounds), "completed_sessions": len(sessions),
+                       "risk_score": sessions[-1]["risk_score"] if sessions else None,
+                       "repeat_clicker": repeat_clicker})
     return result
 
 
@@ -616,75 +643,54 @@ def admin_employee_detail(employee_id: int, user=Depends(require_role("client_ad
     if user.get("role") != "super_admin": query = query.filter(Employee.company_id == user["company_id"])
     employee = query.first()
     if not employee: raise HTTPException(404, "Employee not found")
-    rounds = (db.query(Round).join(DbSession).filter(DbSession.employee_id == employee.id, Round.response != None)
-              .order_by(Round.round_number.asc()).all())  # noqa: E711
+    sessions = completed_session_summaries(db, employee.id)
     return {"employee": {"id": employee.id, "name": employee.name, "email": employee.email,
-                          "role": employee.role, "department": employee.department},
-            "rounds": [{"id": r.id, "round_number": r.round_number, "tactic": r.tactic_selected,
-                        "response": r.response, "detection_reward": r.detection_reward,
-                        "safety_score": r.safety_score, "classifier_score": r.classifier_score,
-                        "feedback_text": r.feedback_text, "response_time_seconds": r.response_time_seconds, "created_at": r.created_at} for r in rounds]}
+                          "role": employee.role, "department": employee.department,
+                          "risk_score": sessions[-1]["risk_score"] if sessions else None,
+                          "completed_sessions": len(sessions)},
+            "sessions": sessions}
 
 
 @app.get("/admin/analytics/overview")
 def admin_overview(user=Depends(require_role("client_admin", "super_admin")), db: Session = Depends(get_db)):
     employees = admin_employees(user, db)
-    department = {}
+    departments = {}
+    for employee in employees:
+        department = departments.setdefault(employee["department"], {
+            "department": employee["department"], "employees": 0, "trained_employees": 0,
+            "completed_sessions": 0, "risk_total": 0.0,
+        })
+        department["employees"] += 1
+        department["completed_sessions"] += employee["completed_sessions"]
+        if employee["risk_score"] is not None:
+            department["trained_employees"] += 1
+            department["risk_total"] += employee["risk_score"]
+    department_risks = [
+        {**item, "risk_score": round(item["risk_total"] / item["trained_employees"], 1)
+         if item["trained_employees"] else None}
+        for item in departments.values()
+    ]
+    department_risks.sort(key=lambda item: (item["risk_score"] is None, -(item["risk_score"] or 0)))
+    trained = [item for item in employees if item["risk_score"] is not None]
+    organization_risk = round(sum(item["risk_score"] for item in trained) / len(trained), 1) if trained else None
     query = db.query(Round).join(DbSession).join(Employee, DbSession.employee_id == Employee.id).filter(Round.response != None)  # noqa: E711
     if user.get("role") != "super_admin": query = query.filter(Employee.company_id == user["company_id"])
     rounds = query.order_by(Round.created_at.asc()).all()
-    tactic_totals = {}
-    for item in rounds:
-        tactic_totals.setdefault(item.tactic_selected, []).append(item.detection_reward or 0)
-    trend = []
-    weighted_total = 0.0
-    weight_total = 0.0
-    for index, item in enumerate(rounds, 1):
-        risk = 1 - (item.safety_score if item.safety_score is not None else item.detection_reward or 0)
-        weight = index
-        weighted_total += risk * weight
-        weight_total += weight
-        trend.append({"round": index, "risk": round(risk, 3), "date": item.created_at.isoformat(), "department": item.session.employee.department})
-        department.setdefault(item.session.employee.department, {})
-        department[item.session.employee.department].setdefault(item.tactic_selected, []).append(risk)
-    heatmap = {dept: {tactic: round(sum(values) / len(values), 3) for tactic, values in tactics.items()} for dept, tactics in department.items()}
-    previous = rounds[:max(1, len(rounds) // 2)]
-    previous_risk = sum(1 - (r.safety_score if r.safety_score is not None else r.detection_reward or 0) for r in previous) / len(previous) if previous else 0
-    current_risk = weighted_total / weight_total if weight_total else 0
     reportable = sum(1 for r in rounds if r.response == "report")
     times = [r.response_time_seconds for r in rounds if r.response_time_seconds is not None]
     company = db.query(Company).filter(Company.id == user.get("company_id")).first()
-    company_settings = (company.settings or {}) if company else {}
-    return {"company_name": company.name if company else "All companies", "active_tactics": company_settings.get("active_tactics", list(TACTICS)), "total_employees": len(employees),
-            "org_susceptibility": round(sum(e["risk_score"] for e in employees) / len(employees), 3) if employees else 0,
-            "department_breakdown": {k: round(sum(v.values(), []) and sum(sum(v.values(), [])) / len(sum(v.values(), [])), 3) for k,v in department.items()},
-            "heatmap": heatmap, "organization_risk_score": round(current_risk * 100, 1),
-            "risk_change": round((current_risk - previous_risk) * 100, 1),
+    return {"company_name": company.name if company else "All companies", "total_employees": len(employees),
+            "trained_employees": len(trained), "completed_sessions": sum(item["completed_sessions"] for item in employees),
+            "departments": department_risks, "organization_risk_score": organization_risk,
             "avg_time_to_report": round(sum(times) / len(times), 1) if times else None,
-            "repeat_clickers": sum(1 for e in employees if e.get("repeat_clicker")), "completed_reports": reportable,
-            "tactic_breakdown": {k: round(sum(v)/len(v), 3) for k,v in tactic_totals.items()},
-            "trend": trend, "rounds_analyzed": len(rounds), "employees": employees}
+            "repeat_clickers": sum(1 for e in employees if e.get("repeat_clicker")), "completed_reports": reportable}
 
 
 @app.get("/employee/analytics/personal")
 def employee_personal_analytics(user=Depends(require_role("employee")), db: Session = Depends(get_db)):
-    rounds = (db.query(Round).join(DbSession).filter(DbSession.employee_id == int(user["sub"]), Round.response != None)
-              .order_by(Round.created_at.asc()).all())  # noqa: E711
-    all_rounds = (db.query(Round).join(DbSession).join(Employee, DbSession.employee_id == Employee.id)
-                  .filter(Employee.company_id == user["company_id"], Round.response != None).all())  # noqa: E711
-    risk = [1 - (r.safety_score if r.safety_score is not None else r.detection_reward or 0) for r in rounds]
-    tactic = {}
-    for r in rounds: tactic.setdefault(r.tactic_selected, []).append(1 - (r.safety_score if r.safety_score is not None else r.detection_reward or 0))
-    group_scores = []
-    for emp_id in {r.session.employee_id for r in all_rounds}:
-        values = [1 - (r.safety_score if r.safety_score is not None else r.detection_reward or 0) for r in all_rounds if r.session.employee_id == emp_id]
-        if values: group_scores.append(sum(values) / len(values))
-    personal = sum(risk) / len(risk) if risk else 0
-    percentile = round(sum(1 for score in group_scores if score >= personal) / len(group_scores) * 100) if group_scores else 0
-    return {"risk_score": round(personal * 100, 1), "percentile": percentile, "trend": [{"round": r.round_number, "risk": round(1 - (r.safety_score if r.safety_score is not None else r.detection_reward or 0), 3)} for r in rounds],
-            "strongest_tactic": min(tactic, key=lambda x: sum(tactic[x]) / len(tactic[x])) if tactic else None,
-            "weakest_tactic": max(tactic, key=lambda x: sum(tactic[x]) / len(tactic[x])) if tactic else None,
-            "history": [{"id": r.id, "tactic": r.tactic_selected, "response": r.response, "safety_score": r.safety_score, "response_time_seconds": r.response_time_seconds, "created_at": r.created_at} for r in rounds[-10:]]}
+    sessions = completed_session_summaries(db, int(user["sub"]))
+    return {"risk_score": sessions[-1]["risk_score"] if sessions else None,
+            "sessions_completed": len(sessions), "sessions": sessions}
 
 
 @app.get("/admin/analytics/sampling")

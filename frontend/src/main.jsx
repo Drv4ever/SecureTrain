@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './style.css'
 
@@ -140,7 +140,7 @@ function Login({ onLogin }) {
           </article>
           <article className="landing-feature feature-insight">
             <div className="feature-number">03 <span>MEASURABLE PROGRESS</span></div>
-            <div className="insight-preview"><div className="insight-preview-head"><span>TEAM SNAPSHOT</span><span>● LIVE VIEW</span></div><div className="insight-stat"><strong>Risk trends</strong><span>By completed round</span></div><svg viewBox="0 0 280 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0 18 C36 22 42 40 80 35 S122 51 160 49 S205 69 240 62 S263 72 280 75" fill="none" stroke="#2b3741" strokeWidth="3" strokeLinecap="round"/><path d="M0 18 C36 22 42 40 80 35 S122 51 160 49 S205 69 240 62 S263 72 280 75" fill="none" stroke="#2b3741" strokeWidth="12" strokeOpacity=".06" strokeLinecap="round"/></svg><div className="insight-preview-foot"><span>LOWER RISK OVER TIME</span><b>View by department →</b></div></div>
+            <div className="insight-preview"><div className="insight-preview-head"><span>TEAM SNAPSHOT</span><span>● LIVE VIEW</span></div><div className="insight-stat"><strong>Department risk</strong><span>Average latest session</span></div><svg viewBox="0 0 280 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0 18 C36 22 42 40 80 35 S122 51 160 49 S205 69 240 62 S263 72 280 75" fill="none" stroke="#2b3741" strokeWidth="3" strokeLinecap="round"/><path d="M0 18 C36 22 42 40 80 35 S122 51 160 49 S205 69 240 62 S263 72 280 75" fill="none" stroke="#2b3741" strokeWidth="12" strokeOpacity=".06" strokeLinecap="round"/></svg><div className="insight-preview-foot"><span>RISK BY TEAM</span><b>View by department →</b></div></div>
             <h3>See the bigger picture</h3><p>Review organization trends and department patterns to guide the next training steps.</p>
           </article>
         </div>
@@ -209,72 +209,26 @@ function Shell({ user, children, onLogout, section = 'overview', onNavigate }) {
   )
 }
 
-function Chart({ points = [], baseline = [] }) {
-  if (!points.length) return <div className="empty-chart" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No completed rounds yet. Your trend will appear as training progresses.</div>
-  const width = 960, height = 320, padding = { top: 20, right: 28, bottom: 58, left: 64 }
-  const plotWidth = width - padding.left - padding.right
-  const plotHeight = height - padding.top - padding.bottom
-  const xAt = index => padding.left + (index / Math.max(1, points.length - 1)) * plotWidth
-  const yAt = risk => height - padding.bottom - Math.min(1, Math.max(0, risk)) * plotHeight
-  const line = rows => rows.map((item, index) => {
-    const x = padding.left + (index / Math.max(1, rows.length - 1)) * plotWidth
-    const y = yAt(item.risk)
-    return (index ? 'L' : 'M') + ' ' + x + ' ' + y
-  }).join(' ')
-  const tickCount = Math.min(5, points.length)
-  const xTicks = Array.from({ length: tickCount }, (_, index) => {
-    const pointIndex = Math.round(index * (points.length - 1) / Math.max(1, tickCount - 1))
-    return { index: pointIndex, round: points[pointIndex]?.round ?? pointIndex + 1 }
-  }).filter((tick, index, rows) => index === 0 || tick.index !== rows[index - 1].index)
-
-  return (
-    <svg className="risk-chart" viewBox={'0 0 ' + width + ' ' + height} role="img" aria-label="Organization risk score by training round, compared with the untargeted training baseline">
-      <text className="chart-axis-title" x={padding.left} y={11}>RISK SCORE</text>
-      {[0, .25, .5, .75, 1].map(value => {
-        const y = height - padding.bottom - value * (height - padding.top - padding.bottom)
-        return <g key={value}>
-          <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} />
-          <text className="chart-tick" x={padding.left - 12} y={y + 4} textAnchor="end">{Math.round(value * 100)}%</text>
-        </g>
-      })}
-      {xTicks.map(tick => <g key={tick.index}>
-        <line className="chart-x-guide" x1={xAt(tick.index)} x2={xAt(tick.index)} y1={padding.top} y2={height - padding.bottom} />
-        <text className="chart-tick" x={xAt(tick.index)} y={height - padding.bottom + 23} textAnchor="middle">{tick.round}</text>
-      </g>)}
-      <line className="chart-axis" x1={padding.left} x2={width - padding.right} y1={height - padding.bottom} y2={height - padding.bottom} />
-      {baseline.length > 1 && <path className="baseline-line" d={line(baseline)} />}
-      <path className="risk-line" d={line(points)} />
-      {points.map((point, index) => <circle className="risk-point" key={point.round ?? index} cx={xAt(index)} cy={yAt(point.risk)} r={points.length < 16 ? 4 : 2.8}>
-        <title>{'Round ' + (point.round ?? index + 1) + ': ' + Math.round(point.risk * 100) + '% risk'}</title>
-      </circle>)}
-      <text className="chart-x-title" x={(padding.left + width - padding.right) / 2} y={height - 8} textAnchor="middle">TRAINING ROUND</text>
-    </svg>
-  )
+function DepartmentRiskSummary({ departments = [] }) {
+  if (!departments.length) return <p className="muted-copy">Department risk will appear after employees complete a training session.</p>
+  return <div className="department-risk-list">{departments.map(item => (
+    <div className="department-risk-row" key={item.department}>
+      <div className="department-risk-label"><b>{item.department}</b><span>{item.trained_employees}/{item.employees} trained · {item.completed_sessions} sessions</span></div>
+      <div className="risk-meter" role="meter" aria-label={item.department + ' average latest-session risk'} aria-valuemin="0" aria-valuemax="100" aria-valuenow={item.risk_score ?? 0}><i style={{ width: (item.risk_score ?? 0) + '%' }} /></div>
+      <strong>{item.risk_score == null ? '—' : item.risk_score + '%'}</strong>
+    </div>
+  ))}</div>
 }
 
-function Heatmap({ data = {}, tactics = [] }) {
-  const departments = Object.keys(data)
-  return (
-    <div className="heatmap">
-      <div className="heatmap-row heatmap-header">
-        <span>Department</span>
-        {tactics.map(tactic => <span key={tactic}>{tactic}</span>)}
-      </div>
-      {departments.length ? departments.map(department => (
-        <div className="heatmap-row" key={department}>
-          <b>{department}</b>
-          {tactics.map(tactic => {
-            const value = data[department]?.[tactic] || 0
-            return (
-              <span key={tactic} className="heat-cell" style={{ '--intensity': value }}>
-                {Math.round(value * 100)}%
-              </span>
-            )
-          })}
-        </div>
-      )) : <p className="muted-copy">Risk clustering is available once employees complete training rounds.</p>}
-    </div>
-  )
+function SessionRiskHistory({ sessions = [] }) {
+  if (!sessions.length) return <p className="muted-copy">Your risk score will appear after you complete a training session.</p>
+  return <div className="session-risk-list">
+    {sessions.map(session => <div className="session-risk-row" key={session.id}>
+      <div><b>Session {session.session_number}</b><span>{assignmentTitle(session.title)} · {session.completed_at ? new Date(session.completed_at).toLocaleDateString() : 'Completed'} · {session.rounds_completed} rounds</span></div>
+      <strong className={session.risk_score > 60 ? 'risk-high' : session.risk_score > 30 ? 'risk-medium' : 'risk-low'}>{session.risk_score}% risk</strong>
+    </div>)}
+    <p className="muted-copy">Each score is calculated once per completed session. Lower risk is safer.</p>
+  </div>
 }
 
 function Metric({ label, value, alert }) {
@@ -303,28 +257,12 @@ function EmployeeDetail({ employee, onClose }) {
       <section className="card">
         <div className="card-title">
           <div>
-            <h2>Round history</h2>
-            <p>Training decisions and safety scores.</p>
+          <h2>Risk after each session</h2>
+            <p>One score per completed session, based on its answered rounds.</p>
           </div>
         </div>
-        <div className="detail-table">
-          <div className="detail-row detail-label">
-            <span>ROUND</span>
-            <span>TACTIC</span>
-            <span>RESPONSE</span>
-            <span>SAFETY</span>
-            <span>TIME</span>
-          </div>
-          {(data?.rounds || []).map(round => (
-            <div className="detail-row" key={round.id}>
-              <span>Round {round.round_number}</span>
-              <span className="tactic-name">{round.tactic}</span>
-              <span>{round.response}</span>
-              <span>{Math.round((round.safety_score || 0) * 100)}%</span>
-              <span>{round.response_time_seconds ? round.response_time_seconds.toFixed(1) + ' sec' : '—'}</span>
-            </div>
-          ))}
-        </div>
+        <div className="personal-latest-risk"><span>LATEST SESSION RISK</span><strong>{data?.employee?.risk_score == null ? '—' : data.employee.risk_score + '%'}</strong><small>{data?.employee?.completed_sessions || 0} completed sessions · lower is safer</small></div>
+        <SessionRiskHistory sessions={data?.sessions || []} />
       </section>
     </section>
   )
@@ -424,7 +362,6 @@ function AdminDashboard({ section = 'overview' }) {
         [employees, setEmployees] = useState([]),
         [assignments, setAssignments] = useState([]),
         [overview, setOverview] = useState(null),
-        [benchmark, setBenchmark] = useState(null),
         [modelHealth, setModelHealth] = useState(null),
         [selected, setSelected] = useState(null),
         [repeatOnly, setRepeatOnly] = useState(false),
@@ -433,13 +370,11 @@ function AdminDashboard({ section = 'overview' }) {
   const load = () => Promise.all([
     api('/admin/employees'),
     api('/admin/training-assignments'),
-    api('/admin/analytics/overview'),
-    api('/admin/analytics/sampling?rounds=20&repetitions=8')
-  ]).then(([employeeRows, assignmentRows, overviewData, benchmarkData]) => {
+    api('/admin/analytics/overview')
+  ]).then(([employeeRows, assignmentRows, overviewData]) => {
     setEmployees(employeeRows)
     setAssignments(assignmentRows)
     setOverview(overviewData)
-    setBenchmark(benchmarkData)
   }).catch(err => setError(err.message))
 
   useEffect(load, [])
@@ -449,8 +384,7 @@ function AdminDashboard({ section = 'overview' }) {
   useEffect(() => {
     if (tab === 'model-health') api('/api/classifier/info').then(setModelHealth).catch(err => setError(err.message))
   }, [tab])
-  const baseline = useMemo(() => (benchmark?.rounds || []).map(row => ({ risk: 1 - row.random })), [benchmark]),
-        visibleEmployees = employees.filter(employee => !repeatOnly || employee.repeat_clicker)
+  const visibleEmployees = employees.filter(employee => !repeatOnly || employee.repeat_clicker)
 
   if (selected) return <EmployeeDetail employee={selected} onClose={() => setSelected(null)} />
 
@@ -479,7 +413,7 @@ function AdminDashboard({ section = 'overview' }) {
       </div>
 
       {tab === 'employees' ? (
-        <section className="page"><div className="page-title"><div><span>TEAM MANAGEMENT</span><h1>Employees</h1><p>Review learner activity and open an employee risk profile.</p></div></div><section className="card employee-card"><div className="employee-table">{employees.map(employee => <div className="employee-row" key={employee.id}><span className="employee-name"><i>{employee.name[0]}</i><b>{employee.name}</b></span><span>{employee.department}</span><span>{employee.rounds} rounds</span><button className="row-link" onClick={() => setSelected(employee)}>View</button></div>)}</div></section></section>
+        <section className="page"><div className="page-title"><div><span>TEAM MANAGEMENT</span><h1>Employees</h1><p>Review learner activity and open an employee risk profile.</p></div></div><section className="card employee-card"><div className="employee-table">{employees.map(employee => <div className="employee-row" key={employee.id}><span className="employee-name"><i>{employee.name[0]}</i><b>{employee.name}</b></span><span>{employee.department}</span><span>{employee.risk_score == null ? 'No session yet' : employee.risk_score + '% risk'}</span><button className="row-link" onClick={() => setSelected(employee)}>View</button></div>)}</div></section></section>
       ) : tab === 'settings' ? (
         <section className="page"><div className="page-title"><div><span>WORKSPACE SETTINGS</span><h1>Settings</h1><p>Configure training and review workspace defaults.</p></div></div><section className="card"><h2>Training configuration</h2><p>Active tactics and assignment controls are managed from the Assignments workspace. Model diagnostics are available in Model Health.</p><button className="button button-primary" onClick={() => setTab('assignments')}>Open assignments</button></section></section>
       ) : tab === 'model-health' ? (
@@ -498,18 +432,16 @@ function AdminDashboard({ section = 'overview' }) {
       ) : tab === 'reports' ? (
         <section className="page">
           <div className="page-title"><div><span>RISK ANALYTICS</span><h1>Training analytics</h1><p>Review organization trends and exportable security reports.</p></div><button className="button button-primary" onClick={() => download('pdf', 'executive')}>Export report</button></div>
-          <section className="card"><div className="card-title"><div><h2>Risk trend</h2><p>Adaptive training performance over completed rounds.</p></div></div><Chart points={overview?.trend || []} baseline={baseline} /></section>
-          <div className="metric-grid"><Metric label="Rounds analyzed" value={overview?.rounds_analyzed ?? 0} /><Metric label="Organization risk" value={(overview?.organization_risk_score ?? 0) + '/100'} /><Metric label="Repeat clickers" value={overview?.repeat_clickers ?? 0} alert /></div>
+          <div className="metric-grid"><Metric label="Employees trained" value={overview?.trained_employees ?? 0} /><Metric label="Completed sessions" value={overview?.completed_sessions ?? 0} /><Metric label="Average latest-session risk" value={overview?.organization_risk_score == null ? '—' : overview.organization_risk_score + '%'} /><Metric label="Repeat clickers" value={overview?.repeat_clickers ?? 0} alert /></div>
+          <section className="card"><div className="card-title"><div><h2>Risk by department</h2><p>Average of each trained employee’s latest completed-session score.</p></div><span className="legend-low">Lower is safer</span></div><DepartmentRiskSummary departments={overview?.departments || []} /></section>
         </section>
       ) : tab === 'overview' ? (
         <>
           <section className="score-strip">
             <div>
-              <span>ORGANIZATION RISK SCORE</span>
-              <strong>{overview?.organization_risk_score ?? 0}<small>/100</small></strong>
-              <p className={overview?.risk_change <= 0 ? 'improving' : 'worsening'}>
-                {overview?.risk_change <= 0 ? '↓' : '↑'} {Math.abs(overview?.risk_change || 0)} points <em>vs. previous period</em>
-              </p>
+              <span>AVERAGE LATEST SESSION RISK</span>
+              <strong>{overview?.organization_risk_score ?? '—'}<small>{overview?.organization_risk_score == null ? '' : '%'}</small></strong>
+              <p className="score-note">Average of each trained employee’s latest completed session.</p>
             </div>
             <div className="score-explainer">
               <b>Adaptive Thompson Sampling</b>
@@ -519,36 +451,21 @@ function AdminDashboard({ section = 'overview' }) {
 
           <div className="metric-grid">
             <Metric label="Employees" value={overview?.total_employees ?? 0} />
-            <Metric label="Rounds analyzed" value={overview?.rounds_analyzed ?? 0} />
-            <Metric label="Avg. time to report" value={overview?.avg_time_to_report ? overview.avg_time_to_report + 's' : '—'} />
+            <Metric label="Employees trained" value={overview?.trained_employees ?? 0} />
+            <Metric label="Completed sessions" value={overview?.completed_sessions ?? 0} />
             <Metric label="Repeat clickers" value={overview?.repeat_clickers ?? 0} alert />
           </div>
-
-          <section className="card">
-            <div className="card-title">
-              <div>
-                <h2>Is risk going up or down?</h2>
-                <p>This line shows how employee risk changes after each training round.</p>
-              </div>
-              <div className="chart-key">
-                <span><i className="risk-legend" />Your team's risk</span>
-                <span><i className="baseline-legend" />Untargeted baseline</span>
-              </div>
-            </div>
-            <Chart points={overview?.trend || []} baseline={baseline} />
-            <p className="chart-caption">Risk is shown from 0% to 100%. Lower scores indicate safer responses; the dashed red line is a simulated untargeted baseline.</p>
-          </section>
 
           <div className="two-column">
             <section className="card">
               <div className="card-title">
                 <div>
-                  <h2>Department risk</h2>
-                  <p>Susceptibility clusters by phishing tactic.</p>
+                  <h2>Risk by department</h2>
+                  <p>One average latest-session risk per department.</p>
                 </div>
-                <span className="legend-low">Low → High risk</span>
+                <span className="legend-low">Lower is safer</span>
               </div>
-              <Heatmap data={overview?.heatmap} tactics={overview?.active_tactics || []} />
+              <DepartmentRiskSummary departments={overview?.departments || []} />
             </section>
 
             <section className="card">
@@ -590,7 +507,7 @@ function AdminDashboard({ section = 'overview' }) {
                 <span>EMPLOYEE</span>
                 <span>DEPARTMENT</span>
                 <span>RISK</span>
-                <span>ROUNDS</span>
+                <span>SESSIONS</span>
                 <span />
               </div>
               {visibleEmployees.map(employee => (
@@ -602,11 +519,11 @@ function AdminDashboard({ section = 'overview' }) {
                   </span>
                   <span>{employee.department}</span>
                   <span>
-                    <u className={employee.risk_score > .6 ? 'risk-high' : employee.risk_score > .3 ? 'risk-medium' : 'risk-low'}>
-                      {Math.round(employee.risk_score * 100)}%
+                    <u className={employee.risk_score == null ? '' : employee.risk_score > 60 ? 'risk-high' : employee.risk_score > 30 ? 'risk-medium' : 'risk-low'}>
+                      {employee.risk_score == null ? '—' : employee.risk_score + '%'}
                     </u>
                   </span>
-                  <span>{employee.rounds}</span>
+                  <span>{employee.completed_sessions}</span>
                   <button className="row-link" onClick={() => setSelected(employee)}>View</button>
                 </div>
               ))}
@@ -689,16 +606,8 @@ function EmployeeDashboard({ onTrain, section = 'overview' }) {
         </div>
       </div>
       <section className="card">
-        <div className="detail-table">
-          {(analytics?.history || []).map(item => (
-            <div className="detail-row" key={item.id}>
-              <span>Round {item.round_number}</span>
-              <span className="tactic-name">{item.tactic}</span>
-              <span>{item.response}</span>
-              <span>{Math.round((item.safety_score || 0) * 100)}% safety</span>
-            </div>
-          ))}
-        </div>
+        <div className="card-title"><div><h2>Risk after each session</h2><p>One easy-to-read score after each completed training session.</p></div></div>
+        <SessionRiskHistory sessions={analytics?.sessions || []} />
       </section>
     </section>
   )
@@ -717,28 +626,14 @@ function EmployeeDashboard({ onTrain, section = 'overview' }) {
 
       <section className="personal-score">
         <div>
-          <span>PERSONAL RISK SCORE</span>
-          <strong>{analytics?.risk_score ?? 0}<small>/100</small></strong>
-          <p>Safer than <b>{analytics?.percentile ?? 0}%</b> of your organization.</p>
+          <span>LATEST SESSION RISK</span>
+          <strong>{analytics?.risk_score ?? '—'}<small>{analytics?.risk_score == null ? '' : '%'}</small></strong>
+          <p>Based on your most recently completed session. Lower is safer.</p>
         </div>
-        <div className="personal-score-chart">
-          <p className="chart-caption">This shows your risk after each training round. A lower line means you are becoming safer.</p>
-          <Chart points={analytics?.trend || []} />
-        </div>
+        <div className="personal-score-chart"><b>{analytics?.sessions_completed ?? 0}</b><span>completed sessions</span><p>Your score updates when you finish a session, not after each round.</p></div>
       </section>
 
-      <div className="personal-cards">
-        <section className="card">
-          <span>STRONGEST INSTINCT</span>
-          <h2>{analytics?.strongest_tactic || '—'}</h2>
-          <p>You consistently spot and report this tactic.</p>
-        </section>
-        <section className="card">
-          <span>PRACTICE TARGET</span>
-          <h2>{analytics?.weakest_tactic || '—'}</h2>
-          <p>Focus here during upcoming simulations.</p>
-        </section>
-      </div>
+      <section className="card"><div className="card-title"><div><h2>Your risk after each session</h2><p>Each point summarizes your responses for one whole session.</p></div></div><SessionRiskHistory sessions={analytics?.sessions || []} /></section>
 
       {active ? (
         <section className="training-callout">
@@ -751,22 +646,8 @@ function EmployeeDashboard({ onTrain, section = 'overview' }) {
         </section>
       ) : (
         <section className="card">
-          <div className="card-title">
-            <div>
-              <h2>Recent activity</h2>
-              <p>Your simulation response history.</p>
-            </div>
-          </div>
-          <div className="detail-table">
-            {(analytics?.history || []).map(item => (
-              <div className="detail-row" key={item.id}>
-                <span className="tactic-name">{item.tactic}</span>
-                <span>{item.response}</span>
-                <span>{Math.round((item.safety_score || 0) * 100)}% safety</span>
-                <span>{item.response_time_seconds ? item.response_time_seconds.toFixed(1) + ' sec' : '—'}</span>
-              </div>
-            ))}
-          </div>
+          <div className="card-title"><div><h2>Keep your momentum</h2><p>Your completed session scores stay here for easy comparison.</p></div></div>
+          <SessionRiskHistory sessions={analytics?.sessions || []} />
         </section>
       )}
     </section>
