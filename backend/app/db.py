@@ -1,4 +1,4 @@
-"""Database engine, session factory, and initialization for SQLite."""
+"""Database engine, session factory, and schema initialization."""
 
 import os
 from pathlib import Path
@@ -8,13 +8,20 @@ from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-DB_PATH = os.environ.get("DATABASE_PATH", str(BASE_DIR / "trainer.db"))
-DATABASE_URL = f"sqlite:///{DB_PATH}"
-
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False},
-)
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+if DATABASE_URL:
+    # Render and several other hosts still provide the legacy postgres:// scheme.
+    if DATABASE_URL.startswith("postgres://"):
+        DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL[len("postgres://"):]
+    elif DATABASE_URL.startswith("postgresql://"):
+        DATABASE_URL = "postgresql+psycopg://" + DATABASE_URL[len("postgresql://"):]
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+else:
+    DB_PATH = os.environ.get("DATABASE_PATH", str(BASE_DIR / "trainer.db"))
+    engine = create_engine(
+        f"sqlite:///{DB_PATH}",
+        connect_args={"check_same_thread": False},
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
