@@ -1,2 +1,2 @@
-"""SecureTrain application package."""
+"""Safeguard application package."""
 

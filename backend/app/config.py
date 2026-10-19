@@ -9,7 +9,7 @@ RESPONSES: Tuple[str, ...] = ("ignore", "report", "click", "credentials")
 def required_secret(name: str) -> str:
     value = os.environ.get(name, "").strip()
     if not value:
-        raise RuntimeError(f"{name} must be set before starting SecureTrain")
+        raise RuntimeError(f"{name} must be set before starting Safeguard")
     return value
 
 

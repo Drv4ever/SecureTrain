@@ -17,7 +17,7 @@ const download = async (format, mode = 'full', employeeId = '') => {
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || 'Could not generate report')
   const blob = await response.blob()
   const disposition = response.headers.get('Content-Disposition') || ''
-  const filename = disposition.match(/filename=([^;]+)/i)?.[1]?.replace(/["']/g, '') || ('securetrain-analysis.' + format)
+  const filename = disposition.match(/filename=([^;]+)/i)?.[1]?.replace(/["']/g, '') || ('safeguard-analysis.' + format)
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
@@ -32,7 +32,7 @@ const assignmentTitle = title => (title || 'Security awareness campaign').replac
 const Logo = () => (
   <div className="logo">
     <span className="logo-mark">S</span>
-    <span>SecureTrain</span>
+    <span>Safeguard</span>
   </div>
 )
 
@@ -124,8 +124,8 @@ function Login({ onLogin }) {
       </aside>
       <section className="landing-details" id="platform">
         <div className="landing-section-heading">
-          <div><span className="landing-overline">THE SECURETRAIN METHOD</span><h2>Training that meets people<br />where the risk actually is.</h2></div>
-          <p>Move beyond one-size-fits-all reminders. SecureTrain turns realistic practice into useful feedback and a clearer picture of organizational risk.</p>
+          <div><span className="landing-overline">THE SAFEGUARD METHOD</span><h2>Training that meets people<br />where the risk actually is.</h2></div>
+          <p>Move beyond one-size-fits-all reminders. Safeguard turns realistic practice into useful feedback and a clearer picture of organizational risk.</p>
         </div>
         <div className="landing-feature-grid">
           <article className="landing-feature feature-simulation">
@@ -163,7 +163,7 @@ function Shell({ user, children, onLogout, section = 'overview', onNavigate }) {
         <div className="tenant">
           <span className="tenant-avatar">{employee ? 'E' : 'A'}</span>
           <div>
-            <b>{employee ? 'Employee workspace' : 'SecureTrain Demo'}</b>
+            <b>{employee ? 'Employee workspace' : 'Safeguard Demo'}</b>
             <small>{employee ? 'Active Learner' : 'Admin Console'}</small>
           </div>
         </div>
@@ -189,7 +189,7 @@ function Shell({ user, children, onLogout, section = 'overview', onNavigate }) {
       </aside>
       <main className="console-main">
         <header className="console-header">
-          <div className="crumb">SECURETRAIN <b>/</b> {employee ? 'PERSONAL DEFENSE' : 'RISK OVERVIEW'}</div>
+          <div className="crumb">SAFEGUARD <b>/</b> {employee ? 'PERSONAL DEFENSE' : 'RISK OVERVIEW'}</div>
           <div className="header-tools">
             <div className="search-pill">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">

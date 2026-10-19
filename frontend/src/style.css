@@ -1642,7 +1642,7 @@ button {
   }
 }
 
-/* SecureTrain landing experience */
+/* Safeguard landing experience */
 .login-page {
   min-height: 100vh;
   grid-template-columns: minmax(0, 1.06fr) minmax(420px, .94fr);
@@ -1897,7 +1897,7 @@ button {
 .console .employee-name i { background:#edf2f5; color:#596f7d; }
 .console .risk-low { color:#397461; }
 
-/* Restore SecureTrain's original warm white, lime, and black workspace palette. */
+/* Restore Safeguard's warm white, lime, and black workspace palette. */
 .console {
   --accent-lime:#c5f80a;
   --accent-lime-dim:rgba(197,248,10,.22);

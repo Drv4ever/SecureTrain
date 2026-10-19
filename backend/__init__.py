@@ -1,1 +1,1 @@
-"""SecureTrain backend package."""
+"""Safeguard backend package."""

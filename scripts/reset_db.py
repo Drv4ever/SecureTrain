@@ -22,7 +22,7 @@ def main() -> None:
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
-        company = Company(name="SecureTrain Demo", settings={"training_frequency_days": 7, "active_tactics": ["urgency", "authority", "invoice", "credential"]})
+        company = Company(name="Safeguard Demo", settings={"training_frequency_days": 7, "active_tactics": ["urgency", "authority", "invoice", "credential"]})
         db.add(company)
         db.flush()
         db.add(ClientAdmin(company_id=company.id, email="admin@demo.securetrain.test", name="Demo Admin", hashed_password=hash_password("AdminDemo123!")))

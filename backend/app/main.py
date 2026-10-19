@@ -780,15 +780,15 @@ def export_report(format: str = "csv", mode: str = "full", employee_id: int | No
         output = io.StringIO(); writer = csv.writer(output)
         writer.writerow(["employee", "department", "round", "tactic", "response", "detection_reward", "safety_score", "classifier_score", "created_at"])
         for r, _, e, _ in rows: writer.writerow([e.name, e.department, r.round_number, r.tactic_selected, r.response, r.detection_reward, r.safety_score, r.classifier_score, r.created_at.isoformat()])
-        return Response(output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=securetrain-report.csv"})
+        return Response(output.getvalue(), media_type="text/csv", headers={"Content-Disposition": "attachment; filename=safeguard-report.csv"})
     company = db.query(Company).filter(Company.id == user.get("company_id")).first()
     try:
         from reportlab.lib.pagesizes import letter
         from reportlab.pdfgen.canvas import Canvas
         pdf = io.BytesIO(); canvas = Canvas(pdf, pagesize=letter)
-        canvas.setTitle("SecureTrain Analysis Report")
+        canvas.setTitle("Safeguard Analysis Report")
         y = 760
-        canvas.setFont("Helvetica-Bold", 16); canvas.drawString(48, y, f"SecureTrain Analysis Report - {company.name if company else 'All Companies'}")
+        canvas.setFont("Helvetica-Bold", 16); canvas.drawString(48, y, f"Safeguard Analysis Report - {company.name if company else 'All Companies'}")
         y -= 24; canvas.setFont("Helvetica", 9); canvas.drawString(48, y, f"Generated: {__import__('datetime').datetime.utcnow().isoformat()}Z")
         y -= 28
         if mode == "executive":
@@ -799,7 +799,7 @@ def export_report(format: str = "csv", mode: str = "full", employee_id: int | No
             y -= 20; canvas.drawString(48, y, f"Completed rounds: {completed}   Reports: {sum(1 for r, _, _, _ in rows if r.response == 'report')}")
             y -= 30; canvas.drawString(48, y, "This summary focuses on organization-level risk and training progress.")
             canvas.save()
-            return Response(pdf.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=securetrain-executive-summary.pdf"})
+            return Response(pdf.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=safeguard-executive-summary.pdf"})
         canvas.setFont("Helvetica-Bold", 10); canvas.drawString(48, y, "Employee / Department / Round / Tactic / Response / Detection / Safety")
         canvas.setFont("Helvetica", 8)
         for r, _, e, _ in rows:
@@ -808,7 +808,7 @@ def export_report(format: str = "csv", mode: str = "full", employee_id: int | No
             line = f"{e.name[:22]} / {e.department[:14]} / {r.round_number} / {r.tactic_selected} / {r.response or '-'} / {r.detection_reward or 0:.2f} / {r.safety_score or 0:.2f}"
             canvas.drawString(48, y, line[:115])
         canvas.save()
-        return Response(pdf.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=securetrain-report.pdf"})
+        return Response(pdf.getvalue(), media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=safeguard-report.pdf"})
     except ImportError:
         return Response("PDF generation dependency unavailable", status_code=503)
 
