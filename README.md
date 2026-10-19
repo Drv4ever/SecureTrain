@@ -39,6 +39,17 @@ uvicorn backend.app.main:app --reload --port 8000
 
 The React build is served at `/` after `frontend/npm run build`. Without a Groq key, scenarios use the safe fallback templates and are labelled in the employee UI.
 
+## Deploy (Vercel + Render)
+
+The frontend and API are deployed separately. Push this repository to a Git provider connected to both services.
+
+1. Create a Vercel project for this repository with **Root Directory** set to `frontend`. The included `frontend/vercel.json` configures the Vite build and `dist` output. Deploy once to get the production Vercel URL.
+2. Create a Render Blueprint from the repository root. Render reads `render.yaml`; provide `COMPANY_NAME` and set `CORS_ALLOWED_ORIGINS` to the exact Vercel origin (for example, `https://your-project.vercel.app`, with no trailing slash). The blueprint uses the free web plan, generates `JWT_SECRET`, and trains the classifier during build. SQLite uses the default local path and its data is temporary on Render's free filesystem.
+3. In Vercel project settings, add `VITE_API_BASE_URL` with the Render service origin (for example, `https://securetrain-api.onrender.com`) for Production, then redeploy the frontend. Keep the optional `GROQ_API_KEY` only in Render's environment settings; the app uses fallback scenarios when it is absent.
+4. Create the first admin through the Render API's `/docs` page using `POST /auth/register` with `role: "client_admin"`. Then sign in at the Vercel site.
+
+The Render blueprint is configured for a free demo service. Render free services sleep after inactivity and their local filesystem is ephemeral, so training data can be lost on a restart or redeploy. The registration route currently allows public account creation, including client-admin accounts, so treat this as a demo deployment and restrict registration before using it with real employee data. `VITE_SHOW_DEMO_CREDENTIALS` is off unless explicitly set to `true`; do not enable it on a public deployment.
+
 ## Demo data
 
 `python scripts/reset_db.py` drops and recreates the configured SQLite schema, then seeds exactly five synthetic employees, one demo admin, and no assignment history. It is the repeatable reset path; do not hand-edit `trainer.db`.

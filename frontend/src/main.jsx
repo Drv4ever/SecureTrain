@@ -2,14 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './style.css'
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
+const SHOW_DEMO_CREDENTIALS = import.meta.env.VITE_SHOW_DEMO_CREDENTIALS === 'true'
 const api = async (path, options = {}) => {
-  const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', ...(window.__token ? { Authorization: 'Bearer ' + window.__token } : {}) } })
+  const response = await fetch(API_BASE_URL + path, { ...options, headers: { 'Content-Type': 'application/json', ...(window.__token ? { Authorization: 'Bearer ' + window.__token } : {}) } })
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || 'Request failed')
   return response.json()
 }
 const download = async (format, mode = 'full', employeeId = '') => {
   const query = '?format=' + encodeURIComponent(format) + '&mode=' + encodeURIComponent(mode) + (employeeId ? '&employee_id=' + encodeURIComponent(employeeId) : '')
-  const response = await fetch('/admin/reports/export' + query, {
+  const response = await fetch(API_BASE_URL + '/admin/reports/export' + query, {
     headers: window.__token ? { Authorization: 'Bearer ' + window.__token } : {}
   })
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || 'Could not generate report')
@@ -36,14 +38,14 @@ const Logo = () => (
 
 function Login({ onLogin }) {
   const [role, setRole] = useState('client_admin'),
-        [email, setEmail] = useState('admin@demo.securetrain.test'),
-        [password, setPassword] = useState('AdminDemo123!'),
+        [email, setEmail] = useState(SHOW_DEMO_CREDENTIALS ? 'admin@demo.securetrain.test' : ''),
+        [password, setPassword] = useState(SHOW_DEMO_CREDENTIALS ? 'AdminDemo123!' : ''),
         [error, setError] = useState('')
 
   const choose = value => {
     setRole(value)
-    setEmail(value === 'client_admin' ? 'admin@demo.securetrain.test' : 'employee@demo.securetrain.test')
-    setPassword(value === 'client_admin' ? 'AdminDemo123!' : 'EmployeeDemo123!')
+    setEmail(SHOW_DEMO_CREDENTIALS ? (value === 'client_admin' ? 'admin@demo.securetrain.test' : 'employee@demo.securetrain.test') : '')
+    setPassword(SHOW_DEMO_CREDENTIALS ? (value === 'client_admin' ? 'AdminDemo123!' : 'EmployeeDemo123!') : '')
   }
 
   const submit = async event => {
@@ -60,12 +62,17 @@ function Login({ onLogin }) {
 
   return (
     <main className="login-page">
-      <section className="login-panel">
+      <div className="landing-topline">
         <Logo />
+        <div className="landing-status"><span /> Simulation environment ready <b>·</b> Built for safer teams</div>
+        <nav className="landing-nav"><a href="#platform">Platform</a><a href="#approach">How it works</a></nav>
+        <a href="#signin" onClick={event => { event.preventDefault(); document.querySelector('.login-panel input')?.focus() }}>Member sign in <span>↗</span></a>
+      </div>
+      <section className="login-panel" id="signin">
         <div className="login-copy">
-          <span>AI SECURITY WORKSPACE</span>
-          <h1>Workforce defense, automated.</h1>
-          <p>Sign in to monitor team risk or launch adaptive simulations.</p>
+          <span>YOUR SECURITY WORKSPACE</span>
+          <h1>Good instincts are built, not born.</h1>
+          <p>Sign in to turn everyday decisions into your team’s strongest line of defense.</p>
         </div>
 
         <div className="role-tabs">
@@ -86,36 +93,63 @@ function Login({ onLogin }) {
           <button className="button button-primary wide">Sign in</button>
         </form>
 
-        <p className="login-footnote">SecureTrain adaptive learning keeps employee training engaging and measurable.</p>
+        <p className="login-footnote"><span className="lock-icon">◇</span> Your workspace is protected with encrypted authentication.</p>
       </section>
 
       <aside className="login-aside">
         <div className="grid-orb" />
-        
-        {/* Gaspy Floating Ticket Top */}
-        <div className="hero-ticket hero-ticket-top">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '10px', color: 'var(--accent-lime)', fontWeight: 700 }}>THOMPSON SAMPLER</span>
-            <span style={{ fontSize: '10px', opacity: 0.7 }}>Active</span>
-          </div>
-          <div style={{ fontSize: '15px', fontWeight: 800, marginTop: '4px' }}>94.2% Accuracy</div>
-          <div style={{ fontSize: '11px', opacity: 0.6, marginTop: '2px' }}>Adaptive Arm: Invoice</div>
+        <div className="hero-kicker"><span className="kicker-pulse" /> SECURITY THAT LEARNS WITH YOU <span className="kicker-index">01 / 03</span></div>
+        <div className="hero-art" aria-hidden="true">
+          <div className="art-ring ring-one" /><div className="art-ring ring-two" /><div className="art-ring ring-three" />
+          <svg viewBox="0 0 500 390" fill="none">
+            <path className="orbit-path" d="M65 234C113 113 248 65 373 113c90 35 120 133 61 198-53 58-155 44-175-22-17-54 26-104 74-92 40 10 47 57 22 78" />
+            <path className="orbit-path orbit-path-alt" d="M79 111c91 16 144 78 171 134 27 55 65 98 131 96" />
+            <circle cx="250" cy="196" r="95" className="core-halo" />
+            <path d="M250 136l52 20v43c0 38-22 67-52 82-30-15-52-44-52-82v-43l52-20Z" className="shield-shape" />
+            <path d="m228 198 15 15 31-34" className="shield-check" />
+            <circle cx="96" cy="111" r="7" className="node node-lime"/><circle cx="373" cy="113" r="6" className="node node-white"/>
+            <circle cx="434" cy="311" r="8" className="node node-lime"/><circle cx="75" cy="234" r="5" className="node node-white"/>
+            <circle cx="382" cy="173" r="4" className="node node-lime"/><circle cx="187" cy="315" r="4" className="node node-white"/>
+          </svg>
+          <div className="signal-card signal-one"><span className="signal-icon">↗</span><div><small>THREAT RESPONSE</small><b>Getting sharper</b></div><span className="signal-live">LIVE</span></div>
+          <div className="signal-card signal-two"><span className="signal-icon signal-spark">✳</span><div><small>ADAPTIVE LEARNING</small><b>One round at a time</b></div></div>
+          <div className="art-caption"><span>FIG 01</span><span>HUMAN + MACHINE, IN SYNC</span></div>
         </div>
-
-        {/* Gaspy Floating Ticket Bottom */}
-        <div className="hero-ticket hero-ticket-bottom">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '10px', color: 'var(--accent-lime)', fontWeight: 700 }}>RISK REDUCTION</span>
-            <span style={{ fontSize: '10px', color: '#a3e635' }}>↓ 28%</span>
-          </div>
-          <div style={{ fontSize: '15px', fontWeight: 800, marginTop: '4px' }}>Org Risk Score</div>
-          <div style={{ fontSize: '11px', opacity: 0.6, marginTop: '2px' }}>420 Simulations Run</div>
+        <div className="hero-copy">
+          <div className="hero-eyebrow">A new kind of security training</div>
+          <h2>Make your people<br />the <span className="highlight">human firewall.</span></h2>
+          <p>Realistic simulations. Personal coaching. A team that gets a little harder to fool every day.</p>
         </div>
-
-        <span>Adaptive AI Security</span>
-        <h2>Your security posture, <span className="highlight">without</span> the guesswork.</h2>
-        <p>Real-time employee simulations, Thompson Sampling multi-armed bandits, and predictive behavior analytics in one workspace.</p>
+        <div className="hero-foot"><span>01 — PRACTICE</span><span>02 — LEARN</span><span>03 — PROTECT</span></div>
       </aside>
+      <section className="landing-details" id="platform">
+        <div className="landing-section-heading">
+          <div><span className="landing-overline">THE SECURETRAIN METHOD</span><h2>Training that meets people<br />where the risk actually is.</h2></div>
+          <p>Move beyond one-size-fits-all reminders. SecureTrain turns realistic practice into useful feedback and a clearer picture of organizational risk.</p>
+        </div>
+        <div className="landing-feature-grid">
+          <article className="landing-feature feature-simulation">
+            <div className="feature-number">01 <span>REALISTIC PRACTICE</span></div>
+            <div className="mail-preview"><div className="mail-top"><span>INBOX SIMULATION</span><span className="mail-dot" /></div><div className="mail-from"><i>F</i><div><b>Finance Team</b><small>to you · just now</small></div></div><div className="mail-subject">Updated payment details</div><div className="mail-lines"><i /><i /><i /></div><div className="mail-link">Review secure document <span>↗</span></div></div>
+            <h3>Practice in context</h3><p>Employees learn by responding to simulated scenarios that reflect common workplace tactics.</p>
+          </article>
+          <article className="landing-feature feature-adaptive">
+            <div className="feature-number">02 <span>ADAPTIVE LEARNING</span></div>
+            <div className="adaptive-preview"><div className="adaptive-head"><span>LEARNING PATH</span><b>Adjusting</b></div><div className="adaptive-bars"><span style={{'--bar-height':'42%'}} /><span style={{'--bar-height':'64%'}} /><span className="bar-current" style={{'--bar-height':'88%'}} /><span style={{'--bar-height':'56%'}} /><span style={{'--bar-height':'72%'}} /><span style={{'--bar-height':'47%'}} /></div><div className="adaptive-labels"><span>Invoice</span><span>Links</span><span>Credentials</span></div><div className="adaptive-note"><i>↗</i> Next round adapts to performance</div></div>
+            <h3>Focus on what needs work</h3><p>Adaptive selection shifts practice toward the tactics where each learner can benefit most.</p>
+          </article>
+          <article className="landing-feature feature-insight">
+            <div className="feature-number">03 <span>MEASURABLE PROGRESS</span></div>
+            <div className="insight-preview"><div className="insight-preview-head"><span>TEAM SNAPSHOT</span><span>● LIVE VIEW</span></div><div className="insight-stat"><strong>Risk trends</strong><span>By completed round</span></div><svg viewBox="0 0 280 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0 18 C36 22 42 40 80 35 S122 51 160 49 S205 69 240 62 S263 72 280 75" fill="none" stroke="#2b3741" strokeWidth="3" strokeLinecap="round"/><path d="M0 18 C36 22 42 40 80 35 S122 51 160 49 S205 69 240 62 S263 72 280 75" fill="none" stroke="#2b3741" strokeWidth="12" strokeOpacity=".06" strokeLinecap="round"/></svg><div className="insight-preview-foot"><span>LOWER RISK OVER TIME</span><b>View by department →</b></div></div>
+            <h3>See the bigger picture</h3><p>Review organization trends and department patterns to guide the next training steps.</p>
+          </article>
+        </div>
+      </section>
+      <section className="landing-approach" id="approach">
+        <div className="approach-copy"><span className="landing-overline">A SIMPLE, REPEATABLE LOOP</span><h2>Small moments.<br /><em>Stronger instincts.</em></h2><p>Each round gives employees a safe place to pause, decide, and learn. Admins get a clearer view of where the team needs support.</p><button className="approach-link" onClick={() => document.querySelector('.login-panel input')?.focus()}>Explore your workspace <span>↗</span></button></div>
+        <div className="approach-steps"><div><span>01</span><section><b>Simulate</b><p>Present a realistic security decision in a safe environment.</p></section><i>↗</i></div><div><span>02</span><section><b>Coach</b><p>Give immediate, practical feedback based on the response.</p></section><i>✳</i></div><div><span>03</span><section><b>Improve</b><p>Adapt future practice and track progress across the team.</p></section><i>⌁</i></div></div>
+      </section>
+      <footer className="landing-footer"><Logo /><span>Build safer habits, one decision at a time.</span><a href="#signin" onClick={event => { event.preventDefault(); document.querySelector('.login-panel input')?.focus(); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>Back to sign in ↑</a></footer>
     </main>
   )
 }
@@ -144,9 +178,6 @@ function Shell({ user, children, onLogout, section = 'overview', onNavigate }) {
           {!employee && <a href="#reports" className={section === 'reports' ? 'active' : ''} onClick={event => { event.preventDefault(); onNavigate('reports') }}>
             <i>◫</i><span>Risk Analytics</span>
           </a>}
-          <span className="nav-section">MANAGE</span>
-          <a href="#manage" onClick={event => { event.preventDefault(); onNavigate(employee ? 'learning' : 'employees') }}><i>◎</i><span>{employee ? 'Learning Path' : 'Employees'}</span></a>
-          <a href="#settings" onClick={event => { event.preventDefault(); onNavigate('settings') }}><i>⚙</i><span>{employee ? 'Preferences' : 'Settings'}</span></a>
         </nav>
         <div className="nav-bottom">
           <div className="system-status">
@@ -180,22 +211,43 @@ function Shell({ user, children, onLogout, section = 'overview', onNavigate }) {
 
 function Chart({ points = [], baseline = [] }) {
   if (!points.length) return <div className="empty-chart" style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)' }}>No completed rounds yet. Your trend will appear as training progresses.</div>
-  const width = 960, height = 260, padding = 28
+  const width = 960, height = 320, padding = { top: 20, right: 28, bottom: 58, left: 64 }
+  const plotWidth = width - padding.left - padding.right
+  const plotHeight = height - padding.top - padding.bottom
+  const xAt = index => padding.left + (index / Math.max(1, points.length - 1)) * plotWidth
+  const yAt = risk => height - padding.bottom - Math.min(1, Math.max(0, risk)) * plotHeight
   const line = rows => rows.map((item, index) => {
-    const x = padding + (index / Math.max(1, rows.length - 1)) * (width - padding * 2)
-    const y = height - padding - Math.min(1, Math.max(0, item.risk)) * (height - padding * 2)
+    const x = padding.left + (index / Math.max(1, rows.length - 1)) * plotWidth
+    const y = yAt(item.risk)
     return (index ? 'L' : 'M') + ' ' + x + ' ' + y
   }).join(' ')
+  const tickCount = Math.min(5, points.length)
+  const xTicks = Array.from({ length: tickCount }, (_, index) => {
+    const pointIndex = Math.round(index * (points.length - 1) / Math.max(1, tickCount - 1))
+    return { index: pointIndex, round: points[pointIndex]?.round ?? pointIndex + 1 }
+  }).filter((tick, index, rows) => index === 0 || tick.index !== rows[index - 1].index)
 
   return (
-    <svg className="risk-chart" viewBox={'0 0 ' + width + ' ' + height} aria-label="Risk trend chart">
-      {[.25, .5, .75].map(value => (
-        <line key={value} x1={padding} x2={width - padding} y1={height - padding - value * (height - padding * 2)} y2={height - padding - value * (height - padding * 2)} />
-      ))}
+    <svg className="risk-chart" viewBox={'0 0 ' + width + ' ' + height} role="img" aria-label="Organization risk score by training round, compared with the untargeted training baseline">
+      <text className="chart-axis-title" x={padding.left} y={11}>RISK SCORE</text>
+      {[0, .25, .5, .75, 1].map(value => {
+        const y = height - padding.bottom - value * (height - padding.top - padding.bottom)
+        return <g key={value}>
+          <line x1={padding.left} x2={width - padding.right} y1={y} y2={y} />
+          <text className="chart-tick" x={padding.left - 12} y={y + 4} textAnchor="end">{Math.round(value * 100)}%</text>
+        </g>
+      })}
+      {xTicks.map(tick => <g key={tick.index}>
+        <line className="chart-x-guide" x1={xAt(tick.index)} x2={xAt(tick.index)} y1={padding.top} y2={height - padding.bottom} />
+        <text className="chart-tick" x={xAt(tick.index)} y={height - padding.bottom + 23} textAnchor="middle">{tick.round}</text>
+      </g>)}
+      <line className="chart-axis" x1={padding.left} x2={width - padding.right} y1={height - padding.bottom} y2={height - padding.bottom} />
       {baseline.length > 1 && <path className="baseline-line" d={line(baseline)} />}
       <path className="risk-line" d={line(points)} />
-      <text x={padding} y={height - 7}>Start</text>
-      <text x={width - padding - 40} y={height - 7}>Latest</text>
+      {points.map((point, index) => <circle className="risk-point" key={point.round ?? index} cx={xAt(index)} cy={yAt(point.risk)} r={points.length < 16 ? 4 : 2.8}>
+        <title>{'Round ' + (point.round ?? index + 1) + ': ' + Math.round(point.risk * 100) + '% risk'}</title>
+      </circle>)}
+      <text className="chart-x-title" x={(padding.left + width - padding.right) / 2} y={height - 8} textAnchor="middle">TRAINING ROUND</text>
     </svg>
   )
 }
@@ -475,16 +527,16 @@ function AdminDashboard({ section = 'overview' }) {
           <section className="card">
             <div className="card-title">
               <div>
-                <h2>Risk trend</h2>
-                <p>Adaptive training compared with a static baseline.</p>
+                <h2>Is risk going up or down?</h2>
+                <p>This line shows how employee risk changes after each training round.</p>
               </div>
               <div className="chart-key">
-                <span><i className="blue-dot" />SecureTrain Risk</span>
-                <span><i className="gray-dash" />Static Baseline</span>
+                <span><i className="risk-legend" />Your team's risk</span>
+                <span><i className="baseline-legend" />Untargeted baseline</span>
               </div>
             </div>
             <Chart points={overview?.trend || []} baseline={baseline} />
-            <p className="chart-caption">The baseline shows simulated performance without adaptive learning targeting.</p>
+            <p className="chart-caption">Risk is shown from 0% to 100%. Lower scores indicate safer responses; the dashed red line is a simulated untargeted baseline.</p>
           </section>
 
           <div className="two-column">
@@ -627,8 +679,6 @@ function EmployeeDashboard({ onTrain, section = 'overview' }) {
   )
 
   if (section === 'assignments') return openAssignments()
-  if (section === 'learning') return <section className="page"><div className="page-title"><div><span>LEARNING PATH</span><h1>My learning path</h1><p>Continue assigned simulations and build safer response habits.</p></div></div><section className="card"><h2>Recommended next step</h2><p>Complete your active assignment to improve your phishing detection practice.</p>{assignments.find(item => ['scheduled', 'active'].includes(item.status)) && <button className="button button-primary" onClick={() => onTrain(assignments.find(item => ['scheduled', 'active'].includes(item.status)))}>Continue training</button>}</section></section>
-  if (section === 'settings') return <section className="page"><div className="page-title"><div><span>PERSONAL SETTINGS</span><h1>Preferences</h1><p>Your training workspace is ready for adaptive practice.</p></div></div><section className="card"><h2>Training preferences</h2><p>Assignments and feedback are personalized automatically from your completed rounds.</p></section></section>
   if (section === 'reports') return (
     <section className="page">
       <div className="page-title">
@@ -671,7 +721,10 @@ function EmployeeDashboard({ onTrain, section = 'overview' }) {
           <strong>{analytics?.risk_score ?? 0}<small>/100</small></strong>
           <p>Safer than <b>{analytics?.percentile ?? 0}%</b> of your organization.</p>
         </div>
-        <Chart points={analytics?.trend || []} />
+        <div className="personal-score-chart">
+          <p className="chart-caption">This shows your risk after each training round. A lower line means you are becoming safer.</p>
+          <Chart points={analytics?.trend || []} />
+        </div>
       </section>
 
       <div className="personal-cards">
